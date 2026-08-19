@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { fallbackFor, identity, intro, live, permission } from '@/content/copy';
 import { isCameraRunning, isFallback } from '@/engine/state/machine';
 import { useCamera } from '@/ui/hooks/useCamera';
+import type { Telemetry } from '@/ui/hooks/useFaceTracking';
 import { StylePicker } from './StylePicker';
 import './hero.css';
 import './frame.css';
@@ -15,6 +16,7 @@ export function Hero() {
     canvasRef,
     ambientRef,
     shineRef,
+    telemetryRef,
     delegate,
     artMode,
     setArtMode,
@@ -102,6 +104,7 @@ export function Hero() {
           failure={context.failure}
           delegate={delegate}
           videoRef={videoRef}
+          telemetryRef={telemetryRef}
         />
       )}
     </section>
@@ -166,23 +169,29 @@ function DebugPanel({
   failure,
   delegate,
   videoRef,
+  telemetryRef,
 }: {
   state: string;
   failure: string | null;
   delegate: 'GPU' | 'CPU' | null;
   videoRef: React.RefObject<HTMLVideoElement | null>;
+  telemetryRef: React.RefObject<Telemetry>;
 }) {
   // Sampled rather than read during render: a ref holds no render-triggering value, and
   // the track dimensions only exist once frames start arriving.
   const [track, setTrack] = useState('no frames');
+  const [signals, setSignals] = useState<Telemetry | null>(null);
 
+  // The expression numbers are the point of this panel. Thresholds set by intuition were
+  // roughly twice what a real smiling face produces, so they are tuned against this.
   useEffect(() => {
     const id = setInterval(() => {
       const video = videoRef.current;
       setTrack(video?.videoWidth ? `${video.videoWidth}×${video.videoHeight}` : 'no frames');
-    }, 500);
+      setSignals({ ...telemetryRef.current });
+    }, 200);
     return () => clearInterval(id);
-  }, [videoRef]);
+  }, [videoRef, telemetryRef]);
 
   return (
     <dl className="hero__debug">
@@ -194,8 +203,22 @@ function DebugPanel({
       <dd>{track}</dd>
       <dt>delegate</dt>
       <dd>{delegate ?? 'loading'}</dd>
-      <dt>dpr</dt>
-      <dd>{window.devicePixelRatio}</dd>
+      <dt>tier</dt>
+      <dd>{signals?.tier ?? '—'}</dd>
+      <dt>exposure</dt>
+      <dd>
+        {signals ? `gain ${signals.gain.toFixed(2)} · luma ${signals.luma.toFixed(2)}` : '—'}
+      </dd>
+      <dt>expression</dt>
+      <dd>{signals?.expression ?? '—'}</dd>
+      <dt>smile</dt>
+      <dd>{signals ? signals.smile.toFixed(3) : '—'}</dd>
+      <dt>sadness</dt>
+      <dd>{signals ? signals.sadness.toFixed(3) : '—'}</dd>
+      <dt>surprise</dt>
+      <dd>{signals ? signals.surprise.toFixed(3) : '—'}</dd>
+      <dt>particles</dt>
+      <dd>{signals?.particles ?? '—'}</dd>
     </dl>
   );
 }

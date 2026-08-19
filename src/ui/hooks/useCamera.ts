@@ -4,7 +4,7 @@ import { CameraError, type CameraManager } from '@/engine/camera/camera-types';
 import { checkSupport } from '@/engine/camera/support';
 import { INITIAL_CONTEXT, reduce, type HeroContext } from '@/engine/state/machine';
 import type { ArtModeId } from '@/content/art-modes';
-import { useFaceTracking } from './useFaceTracking';
+import { useFaceTracking, type Telemetry } from './useFaceTracking';
 
 /**
  * The React binding, and the only place the two halves meet: React owns the state
@@ -20,6 +20,7 @@ export interface UseCamera {
   setArtMode: (mode: ArtModeId) => void;
   ambientRef: React.RefObject<HTMLCanvasElement | null>;
   shineRef: React.RefObject<number>;
+  telemetryRef: React.RefObject<Telemetry>;
   begin: () => void;
   retry: () => void;
 }
@@ -43,6 +44,7 @@ export function useCamera(debug: boolean): UseCamera {
     canvasRef,
     ambientRef,
     shineRef,
+    telemetryRef,
     artMode,
     setArtMode,
     start: startTracking,
@@ -138,6 +140,7 @@ export function useCamera(debug: boolean): UseCamera {
     canvasRef,
     ambientRef,
     shineRef,
+    telemetryRef,
     delegate: delegateRef.current,
     artMode,
     setArtMode,

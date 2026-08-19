@@ -3,7 +3,7 @@ import { ART_MODES, randomArtMode, type ArtModeId } from '@/content/art-modes';
 import { createAmbientField } from '@/engine/render/ambient';
 import { renderFrame, type QualityTier } from '@/engine/render/compositor';
 import { createParticleField, type ParticleField } from '@/engine/render/particles';
-import { sampleAmbient } from '@/engine/render/photo';
+import { createSceneSampler } from '@/engine/render/exposure';
 import { createReactionState, updateReactions } from '@/engine/render/reactions';
 import { createViewport } from '@/engine/transform/viewport';
 import { nextExpressionState, type ExpressionState } from '@/engine/vision/expression';
@@ -22,8 +22,21 @@ export interface UseFaceTracking {
   setArtMode: (mode: ArtModeId) => void;
   /** 0..1 specular sweep across the frame, lit by a smile. */
   shineRef: React.RefObject<number>;
+  /** Live signals for the debug HUD — tuning thresholds needs real numbers, not guesses. */
+  telemetryRef: React.RefObject<Telemetry>;
   start: (video: HTMLVideoElement) => void;
   stop: () => void;
+}
+
+export interface Telemetry {
+  expression: ExpressionState;
+  smile: number;
+  sadness: number;
+  surprise: number;
+  particles: number;
+  gain: number;
+  luma: number;
+  tier: QualityTier;
 }
 
 export interface FaceTrackingCallbacks {
@@ -65,6 +78,11 @@ export function useFaceTracking(callbacks: FaceTrackingCallbacks): UseFaceTracki
   const lastAmbientAtRef = useRef(0);
   const particlesRef = useRef<ParticleField | null>(null);
   const ambientFieldRef = useRef(createAmbientField());
+  const sceneRef = useRef(createSceneSampler());
+  const telemetryRef = useRef<Telemetry>({
+    expression: 'neutral', smile: 0, sadness: 0, surprise: 0,
+    particles: 0, gain: 1, luma: 0.5, tier: 'high',
+  });
   const reactionRef = useRef(createReactionState(0));
   const expressionRef = useRef<ExpressionState>('neutral');
 
@@ -97,6 +115,14 @@ export function useFaceTracking(callbacks: FaceTrackingCallbacks): UseFaceTracki
     const face = tracker.getState();
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const mode = ART_MODES[artModeRef.current];
+
+    // One pixel readback per interval feeds both auto-exposure and the ambient backdrop.
+    if (now - lastAmbientAtRef.current > AMBIENT_INTERVAL_MS) {
+      lastAmbientAtRef.current = now;
+      const analysis = sceneRef.current.sample(video);
+      ambientFieldRef.current.update(analysis.quadrants, mode, AMBIENT_INTERVAL_MS);
+    }
+    const scene = sceneRef.current.current;
 
     // The reveal runs once, from the first sighting. Re-running it every time someone
     // leans out of frame would turn a nice moment into a flicker.
@@ -148,16 +174,13 @@ export function useFaceTracking(callbacks: FaceTrackingCallbacks): UseFaceTracki
       time: now,
       reducedMotion,
       tier: tierRef.current,
+      scene,
       debug: handlers.current.debug,
     });
 
-    // The backdrop: sampled from the live image, blended toward the look's palette.
+    // The backdrop: drawn from the colours sampled above.
     const ambientCanvas = ambientRef.current;
     if (ambientCanvas && tierRef.current !== 'lite') {
-      if (now - lastAmbientAtRef.current > AMBIENT_INTERVAL_MS) {
-        lastAmbientAtRef.current = now;
-        ambientFieldRef.current.update(sampleAmbient(video), mode, AMBIENT_INTERVAL_MS);
-      }
       const ambientRect = ambientCanvas.getBoundingClientRect();
       const w = Math.round(ambientRect.width / 2);
       const h = Math.round(ambientRect.height / 2);
@@ -171,6 +194,17 @@ export function useFaceTracking(callbacks: FaceTrackingCallbacks): UseFaceTracki
         if (actx) ambientFieldRef.current.draw(actx, w, h, now);
       }
     }
+
+    telemetryRef.current = {
+      expression: expressionRef.current,
+      smile: face.expression.smile,
+      sadness: face.expression.sadness,
+      surprise: face.expression.surprise,
+      particles: particlesRef.current.liveCount,
+      gain: scene.gain,
+      luma: scene.luma,
+      tier: tierRef.current,
+    };
   }, []);
 
   useEffect(() => {
@@ -199,5 +233,5 @@ export function useFaceTracking(callbacks: FaceTrackingCallbacks): UseFaceTracki
     trackerRef.current?.stop();
   }, []);
 
-  return { canvasRef, ambientRef, artMode, setArtMode, shineRef, start, stop };
+  return { canvasRef, ambientRef, artMode, setArtMode, shineRef, telemetryRef, start, stop };
 }

@@ -1,89 +1,99 @@
 /**
- * The gold frame.
+ * The polaroid.
  *
- * Built from gradients rather than an image so it stays crisp at any size, weighs
- * nothing, and can be re-tinted per look. The depth comes from stacking the three things
- * a real moulding has: a bevel (a conic gradient whose light comes from one direction),
- * an inner shadow where the moulding meets the picture, and a drop shadow beneath the
- * whole thing.
+ * Built from gradients and shadows rather than an image, so it stays crisp at any size
+ * and weighs nothing. What makes it read as a physical object rather than a white box:
  *
- * The specular sweep is a separate layer that only moves when a smile lights it — the
- * frame catching the light because the person in it is happy.
+ *  - The bottom border is much deeper than the other three. That asymmetry *is* the
+ *     polaroid; get it wrong and it is just a picture with a white margin.
+ *  - The stock is not flat white. Real instant film is warm, and slightly darker at the
+ *     edges where the sheet curves away from the light.
+ *  - Two shadows, not one: a tight contact shadow where it touches the surface, and a
+ *     wide soft one for the distance it stands off the page.
+ *  - The picture area is inset with a dark seam, because the emulsion sits *below* the
+ *     surface of the frame.
  */
 
 .frame {
   position: relative;
   /* --shine is written by the render loop, 0..1, and drives the sweep below. */
   --shine: 0;
-  --frame-width: clamp(14px, 2.2vw, 26px);
-  padding: var(--frame-width);
-  border-radius: 4px;
+  --stock: clamp(12px, 1.8vw, 20px);
+
+  padding: var(--stock) var(--stock) calc(var(--stock) * 3.2);
+  border-radius: 3px;
   isolation: isolate;
 
-  /* The moulding itself: a conic gradient reads as bevelled metal because opposite
-     faces catch different amounts of light, exactly as a physical bevel does. */
-  background: conic-gradient(
-    from 45deg,
-    #6b4c14 0deg,
-    #d9ab46 40deg,
-    #f7e07f 80deg,
-    #b8873a 130deg,
-    #6b4c14 180deg,
-    #c99b3f 230deg,
-    #ffeaa0 280deg,
-    #8a6420 330deg,
-    #6b4c14 360deg
-  );
+  /* Warm instant-film stock, lit from the top-left and falling off toward the edges. */
+  background:
+    radial-gradient(120% 90% at 30% 0%, #fffdf7 0%, #f6f1e6 55%, #e9e2d3 100%),
+    #f4efe3;
 
   box-shadow:
-    /* lip catching light from above */
-    inset 0 1px 0 rgba(255, 245, 214, 0.85),
-    /* underside in shadow */ inset 0 -1px 0 rgba(60, 40, 8, 0.9),
-    /* the frame sitting off the page */ 0 18px 40px rgba(0, 0, 0, 0.55),
-    0 2px 6px rgba(0, 0, 0, 0.6);
+    /* the sheet's own thickness */
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(120, 108, 88, 0.25),
+    /* contact shadow: tight, dark, close */
+    0 2px 4px rgba(0, 0, 0, 0.4),
+    /* cast shadow: wide and soft, for the height it stands off the page */
+    0 24px 48px rgba(0, 0, 0, 0.5),
+    0 8px 16px rgba(0, 0, 0, 0.3);
+
+  /* Sat down by hand, not placed by a machine. */
+  transform: rotate(-0.55deg);
+  transition: transform var(--dur-slow) var(--ease-out);
 }
 
-/* Where the moulding meets the photo: a hard, dark seam. Without this the picture
-   looks printed on the frame rather than sitting inside it. */
+.frame[data-on='true'] {
+  transform: rotate(-0.35deg);
+}
+
+/* The seam where the emulsion sits below the surface of the stock. */
 .frame::after {
   content: '';
   position: absolute;
-  inset: calc(var(--frame-width) - 3px);
-  border-radius: 2px;
+  inset: calc(var(--stock) - 2px) calc(var(--stock) - 2px) calc(var(--stock) * 3.2 - 2px);
+  border-radius: 1px;
   pointer-events: none;
-  box-shadow:
-    inset 0 0 0 1px rgba(40, 26, 4, 0.9),
-    inset 0 3px 8px rgba(0, 0, 0, 0.55);
   z-index: 3;
+  box-shadow:
+    inset 0 0 0 1px rgba(60, 52, 38, 0.55),
+    inset 0 2px 6px rgba(0, 0, 0, 0.45);
 }
 
-/* The specular sweep. Sits above the moulding, masked to it, and slides across when
-   `--shine` rises. At rest it is fully transparent and costs nothing. */
+/*
+ * The sheen: light travelling across the glossy stock when a smile lights it. Masked to
+ * the frame, screened over it, and completely transparent at rest so it costs nothing.
+ */
 .frame::before {
   content: '';
   position: absolute;
   inset: 0;
-  border-radius: 4px;
+  border-radius: 3px;
   pointer-events: none;
   z-index: 2;
-  opacity: calc(var(--shine) * 0.9);
+  opacity: calc(var(--shine) * 0.75);
   background: linear-gradient(
-    105deg,
-    transparent 35%,
-    rgba(255, 252, 235, 0.95) 48%,
-    rgba(255, 255, 255, 0.6) 52%,
-    transparent 65%
+    102deg,
+    transparent 38%,
+    rgba(255, 255, 255, 0.95) 47%,
+    rgba(255, 250, 235, 0.55) 53%,
+    transparent 62%
   );
-  background-size: 300% 100%;
+  background-size: 320% 100%;
   /* Travels left→right as the shine decays, so one smile gives one sweep. */
   background-position: calc((1 - var(--shine)) * 100%) 0;
   mix-blend-mode: screen;
 }
 
-/* Reduced motion keeps the frame and its depth, and simply stops the sweep moving. */
+/* Reduced motion keeps the object and its depth, and simply stops the sweep moving. */
 @media (prefers-reduced-motion: reduce) {
+  .frame {
+    transition: none;
+  }
+
   .frame::before {
     background-position: 50% 0;
-    opacity: calc(var(--shine) * 0.35);
+    opacity: calc(var(--shine) * 0.3);
   }
 }

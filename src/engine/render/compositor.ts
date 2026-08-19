@@ -2,6 +2,7 @@ import type { ArtMode } from '@/content/art-modes';
 import { backingSize, type Viewport } from '@/engine/transform/viewport';
 import type { FaceState } from '@/engine/vision/types';
 import { drawDebugFace } from './debug-overlay';
+import type { SceneAnalysis } from './exposure';
 import { drawGrain } from './grain';
 import type { ParticleField } from './particles';
 import { drawPhoto } from './photo';
@@ -29,6 +30,7 @@ export interface FrameOptions {
   time: number;
   reducedMotion: boolean;
   tier: QualityTier;
+  scene: SceneAnalysis;
   debug: boolean;
 }
 
@@ -51,10 +53,24 @@ export function renderFrame(
   ctx.setTransform(viewport.dpr, 0, 0, viewport.dpr, 0, 0);
 
   if (options.debug) {
+    // Debug shows the exposure-corrected photo with no look applied, so the overlay is
+    // read against the true image rather than a graded one.
     drawPhoto(ctx, options.video, {
-      grade: { ...options.mode.grade, filter: 'none', duotone: null, bloom: 0, tintAlpha: 0, vignette: 0, posterize: 0, grain: 0 },
+      mode: {
+        ...options.mode,
+        grade: { contrast: 1, saturate: 1, brightness: 1, hueRotate: 0, lift: 0, liftColor: '#000' },
+        passes: {
+          ...options.mode.passes,
+          bloom: 0, halation: 0, duotone: null, tintAlpha: 0,
+          diffusion: 0, film: 0, vignette: 0, grain: 0, faceClarity: 0,
+        },
+      },
       viewport,
       tier: options.tier,
+      scene: options.scene,
+      face: options.face,
+      time: options.time,
+      reducedMotion: options.reducedMotion,
     });
     ctx.setTransform(viewport.dpr, 0, 0, viewport.dpr, 0, 0);
     drawDebugFace(ctx, options.face, viewport);
@@ -62,7 +78,15 @@ export function renderFrame(
   }
 
   // Layer 01-05: the photograph and its treatment.
-  drawPhoto(ctx, options.video, { grade: options.mode.grade, viewport, tier: options.tier });
+  drawPhoto(ctx, options.video, {
+    mode: options.mode,
+    viewport,
+    tier: options.tier,
+    scene: options.scene,
+    face: options.face,
+    time: options.time,
+    reducedMotion: options.reducedMotion,
+  });
 
   // Layer 06: reactions, above the photo but inside the frame.
   ctx.save();
@@ -71,7 +95,7 @@ export function renderFrame(
   ctx.restore();
 
   // Layer 07: grain, last, so it sits on the finished image like film rather than under it.
-  if (options.tier !== 'lite' && options.mode.grade.grain > 0) {
-    drawGrain(ctx, viewport, options.mode.grade.grain);
+  if (options.tier !== 'lite' && options.mode.passes.grain > 0) {
+    drawGrain(ctx, viewport, options.mode.passes.grain);
   }
 }

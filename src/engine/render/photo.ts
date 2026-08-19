@@ -1,105 +1,201 @@
-import type { PhotoGrade } from '@/content/art-modes';
-import type { Viewport } from '@/engine/transform/viewport';
+import type { ArtMode } from '@/content/art-modes';
+import { projectNormalized, type Viewport } from '@/engine/transform/viewport';
+import type { FaceState } from '@/engine/vision/types';
 import type { QualityTier } from './compositor';
-import { posterizeFilterId, supportsSvgCanvasFilter } from './svg-filters';
+import { safeContrast, type SceneAnalysis } from './exposure';
+import { drawFilmArtifacts, drawHalation, gateWeave } from './film';
 
 /**
- * The photo treatment — the layer that makes this look like an edit rather than a webcam.
+ * The photo pipeline.
  *
- * This is why the video moved *into* the canvas. While it was a DOM element underneath,
- * nothing here was possible: canvas composite operations only blend within their own
- * canvas, so grade, duotone, bloom and grain all had nothing to act on.
+ * Order follows a darkroom: expose → grade → tone → bleed → damage → restore the face.
  *
- * Order matters, and mirrors a darkroom: expose → grade → duotone → bloom → tint →
- * vignette → grain. Grain last, so it sits on the finished image like film, not under it.
+ * Two decisions carry this file:
+ *
+ *  1. Everything is relative to an auto-exposed image. The previous version hard-coded
+ *     its numbers against a mid-grey test frame; in a bright room the contrast clipped
+ *     everything to white and the look collapsed into a flat rectangle.
+ *  2. A clean copy of the frame is kept, and the face is composited back from it at the
+ *     end. That is what lets the effects be genuinely heavy: the treatment happens
+ *     *around* the person rather than to them, and the face never stops being readable.
  */
 
-/** Reused between frames — allocating canvases in a render loop is how you get jank. */
-let scratch: HTMLCanvasElement | null = null;
+/** Reused across frames — allocating canvases in a render loop is how you get jank. */
+let clean: HTMLCanvasElement | null = null;
 let bloomCanvas: HTMLCanvasElement | null = null;
+let diffusionCanvas: HTMLCanvasElement | null = null;
+// Separate from the diffusion scratch on purpose: sharing one buffer between two passes
+// in the same frame means the second silently eats the first.
+let faceTile: HTMLCanvasElement | null = null;
 
-function getScratch(width: number, height: number): HTMLCanvasElement {
-  scratch ??= document.createElement('canvas');
-  if (scratch.width !== width || scratch.height !== height) {
-    scratch.width = width;
-    scratch.height = height;
+function scratchCanvas(
+  ref: HTMLCanvasElement | null,
+  width: number,
+  height: number,
+): HTMLCanvasElement {
+  const canvas = ref ?? document.createElement('canvas');
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
   }
-  return scratch;
-}
-
-function getBloom(width: number, height: number): HTMLCanvasElement {
-  bloomCanvas ??= document.createElement('canvas');
-  if (bloomCanvas.width !== width || bloomCanvas.height !== height) {
-    bloomCanvas.width = width;
-    bloomCanvas.height = height;
-  }
-  return bloomCanvas;
+  return canvas;
 }
 
 export interface PhotoOptions {
-  grade: PhotoGrade;
+  mode: ArtMode;
   viewport: Viewport;
   tier: QualityTier;
+  scene: SceneAnalysis;
+  face: FaceState;
+  time: number;
+  reducedMotion: boolean;
 }
 
-/**
- * Draws the video through the viewport's cover-crop and mirror, then grades it.
- * The crop comes from the same transform the face art uses, so marks stay registered to
- * the face no matter which crop is active.
- */
 export function drawPhoto(
   ctx: CanvasRenderingContext2D,
   video: HTMLVideoElement,
   options: PhotoOptions,
 ): void {
-  const { viewport, grade, tier } = options;
+  const { viewport, mode, tier, scene, time } = options;
   const { crop, width, height, mirrored } = viewport;
-  if (video.videoWidth === 0) return;
+  if (video.videoWidth === 0 || width === 0) return;
+
+  const { grade, passes } = mode;
+  const pixelW = Math.round(width * viewport.dpr);
+  const pixelH = Math.round(height * viewport.dpr);
+
+  // ---- 1. clean pass: exposure-corrected, otherwise untouched --------------------
+  // Everything downstream reads from this, including the face restore, so the correction
+  // is applied exactly once.
+  clean = scratchCanvas(clean, pixelW, pixelH);
+  const cctx = clean.getContext('2d');
+  if (!cctx) return;
+  cctx.setTransform(viewport.dpr, 0, 0, viewport.dpr, 0, 0);
+  cctx.clearRect(0, 0, width, height);
+  cctx.save();
+  if (mirrored) {
+    cctx.translate(width, 0);
+    cctx.scale(-1, 1);
+  }
+  cctx.filter = `brightness(${scene.gain.toFixed(3)})`;
+  cctx.drawImage(video, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, width, height);
+  cctx.filter = 'none';
+  cctx.restore();
+
+  // ---- 2. graded pass onto the target -------------------------------------------
+  const contrast = safeContrast(grade.contrast, scene);
+  const weave = options.reducedMotion ? { x: 0, y: 0 } : gateWeave(time, passes.film);
 
   ctx.save();
-
-  // The mirror is applied here, once, for the photo. Landmarks get mirrored separately
-  // by projectNormalized — both from the same `mirrored` flag, so they cannot disagree.
-  if (mirrored) {
-    ctx.translate(width, 0);
-    ctx.scale(-1, 1);
-  }
-
-  // A cheap, GPU-accelerated grade. Doing this per-pixel in JS would cost 30x more.
-  // Posterisation rides along in the same filter string when the engine supports SVG
-  // filters on a canvas — see svg-filters.ts for why that matters so much here.
-  const posterizeOnGpu = grade.posterize > 0 && supportsSvgCanvasFilter();
-  ctx.filter = posterizeOnGpu
-    ? `${grade.filter} url(#${posterizeFilterId(grade.posterize)})`
-    : grade.filter;
-  ctx.drawImage(video, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, width, height);
+  ctx.translate(weave.x, weave.y);
+  ctx.filter = [
+    `contrast(${contrast.toFixed(3)})`,
+    `saturate(${grade.saturate})`,
+    `brightness(${grade.brightness})`,
+    grade.hueRotate ? `hue-rotate(${grade.hueRotate}deg)` : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  ctx.drawImage(clean, 0, 0, width, height);
   ctx.filter = 'none';
   ctx.restore();
 
-  if (grade.duotone) drawDuotone(ctx, viewport, grade.duotone);
-  // Only reached where the GPU path is unavailable, and only on the strongest devices —
-  // it is the most expensive operation in the renderer by an order of magnitude.
-  if (grade.posterize > 0 && !posterizeOnGpu && tier === 'high') {
-    drawPosterize(ctx, viewport, grade.posterize);
-  }
-  if (grade.bloom > 0 && tier !== 'lite') drawBloom(ctx, viewport, grade.bloom);
-
-  if (grade.tintAlpha > 0) {
+  // ---- 3. lifted blacks: the faded-print look -----------------------------------
+  if (grade.lift > 0) {
     ctx.save();
-    ctx.globalCompositeOperation = grade.tintMode;
-    ctx.globalAlpha = grade.tintAlpha;
-    ctx.fillStyle = grade.tint;
-    ctx.fillRect(0, 0, viewport.width, viewport.height);
+    ctx.globalCompositeOperation = 'lighten';
+    ctx.globalAlpha = grade.lift;
+    ctx.fillStyle = grade.liftColor;
+    ctx.fillRect(0, 0, width, height);
     ctx.restore();
   }
 
-  if (grade.vignette > 0) drawVignette(ctx, viewport, grade.vignette);
+  // ---- 4. tone ------------------------------------------------------------------
+  if (passes.duotone) drawDuotone(ctx, viewport, passes.duotone);
+
+  // ---- 5. optical: diffusion, bloom, halation ------------------------------------
+  if (passes.diffusion > 0 && tier !== 'lite') drawDiffusion(ctx, viewport, passes.diffusion);
+  if (passes.bloom > 0 && tier !== 'lite') drawBloom(ctx, viewport, passes.bloom);
+  if (passes.halation > 0 && tier === 'high') drawHalation(ctx, viewport, passes.halation);
+
+  // ---- 6. tint + vignette --------------------------------------------------------
+  if (passes.tintAlpha > 0) {
+    ctx.save();
+    ctx.globalCompositeOperation = passes.tintMode;
+    ctx.globalAlpha = passes.tintAlpha;
+    ctx.fillStyle = passes.tint;
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
+  }
+  if (passes.vignette > 0) drawVignette(ctx, viewport, passes.vignette);
+
+  // ---- 7. film damage ------------------------------------------------------------
+  if (passes.film > 0 && tier !== 'lite') {
+    drawFilmArtifacts(ctx, viewport, passes.film, options.reducedMotion ? 0 : time);
+  }
+
+  // ---- 8. give the face back -----------------------------------------------------
+  if (passes.faceClarity > 0) restoreFace(ctx, clean, options);
 }
 
 /**
- * Two-tone mapping: shadows toward one colour, highlights toward another. Done with
- * composite operations rather than per-pixel maths — `multiply` pulls the darks, `screen`
- * lifts the lights, and the luminance of the photo decides how much of each lands.
+ * Composites the clean face back through a soft elliptical mask.
+ *
+ * The mask is built from the face anchors, so it tracks and scales with the person. Its
+ * edge is feathered over a wide band — a hard edge would look like a cut-out sticker,
+ * which is far worse than no protection at all.
+ */
+function restoreFace(
+  ctx: CanvasRenderingContext2D,
+  source: HTMLCanvasElement,
+  options: PhotoOptions,
+): void {
+  const { face, viewport, mode } = options;
+  const anchors = face.anchors;
+  if (!face.present || !anchors) return;
+
+  const forehead = projectNormalized(anchors.forehead, viewport);
+  const chin = projectNormalized(anchors.chin, viewport);
+  const leftJaw = projectNormalized(anchors.leftJaw, viewport);
+  const rightJaw = projectNormalized(anchors.rightJaw, viewport);
+
+  const cx = (forehead.x + chin.x) / 2;
+  const cy = (forehead.y + chin.y) / 2;
+  const rx = Math.abs(rightJaw.x - leftJaw.x) * 0.85;
+  const ry = Math.hypot(chin.x - forehead.x, chin.y - forehead.y) * 0.8;
+  if (rx <= 0 || ry <= 0) return;
+
+  ctx.save();
+  // A radial gradient used as the alpha of the restored patch: fully clean at the
+  // centre, fading to nothing well before the edge.
+  const gradient = ctx.createRadialGradient(cx, cy, Math.min(rx, ry) * 0.25, cx, cy, Math.max(rx, ry));
+  gradient.addColorStop(0, `rgba(255,255,255,${mode.passes.faceClarity})`);
+  gradient.addColorStop(0.6, `rgba(255,255,255,${mode.passes.faceClarity * 0.55})`);
+  gradient.addColorStop(1, 'rgba(255,255,255,0)');
+
+  // Draw the clean face into an offscreen tile masked by that gradient, then composite.
+  const tile = scratchCanvas(faceTile, ctx.canvas.width, ctx.canvas.height);
+  faceTile = tile;
+  const tctx = tile.getContext('2d');
+  if (!tctx) {
+    ctx.restore();
+    return;
+  }
+  tctx.setTransform(viewport.dpr, 0, 0, viewport.dpr, 0, 0);
+  tctx.clearRect(0, 0, viewport.width, viewport.height);
+  tctx.drawImage(source, 0, 0, viewport.width, viewport.height);
+  tctx.globalCompositeOperation = 'destination-in';
+  tctx.fillStyle = gradient;
+  tctx.fillRect(0, 0, viewport.width, viewport.height);
+  tctx.globalCompositeOperation = 'source-over';
+
+  ctx.drawImage(tile, 0, 0, viewport.width, viewport.height);
+  ctx.restore();
+}
+
+/**
+ * Two-tone mapping: shadows toward one colour, highlights toward another, using
+ * composite operations rather than per-pixel maths.
  */
 function drawDuotone(
   ctx: CanvasRenderingContext2D,
@@ -108,63 +204,61 @@ function drawDuotone(
 ): void {
   ctx.save();
   ctx.globalCompositeOperation = 'color';
-  ctx.globalAlpha = 0.55;
+  ctx.globalAlpha = 0.42;
   ctx.fillStyle = shadow;
   ctx.fillRect(0, 0, viewport.width, viewport.height);
 
   ctx.globalCompositeOperation = 'screen';
-  ctx.globalAlpha = 0.28;
+  ctx.globalAlpha = 0.18;
   ctx.fillStyle = highlight;
   ctx.fillRect(0, 0, viewport.width, viewport.height);
   ctx.restore();
 }
 
-/**
- * Bloom: take the image, blur it hard, screen it back on. The blur runs on a quarter-size
- * canvas — a full-resolution blur every frame is the single most expensive thing here,
- * and at this radius nobody can tell the difference.
- */
+/** Soft-focus: the sharp image with a blurred copy laid over it, never instead of it. */
+function drawDiffusion(
+  ctx: CanvasRenderingContext2D,
+  viewport: Viewport,
+  strength: number,
+): void {
+  const w = Math.max(1, Math.round(viewport.width / 2));
+  const h = Math.max(1, Math.round(viewport.height / 2));
+  diffusionCanvas = scratchCanvas(diffusionCanvas, w, h);
+  const canvas = diffusionCanvas;
+  const dctx = canvas.getContext('2d');
+  if (!dctx) return;
+
+  dctx.clearRect(0, 0, w, h);
+  dctx.filter = 'blur(8px)';
+  dctx.drawImage(ctx.canvas, 0, 0, w, h);
+  dctx.filter = 'none';
+
+  ctx.save();
+  // Lighten keeps the diffusion from muddying the shadows — real diffusion filters
+  // bloom the highlights outward and leave the blacks alone.
+  ctx.globalCompositeOperation = 'lighten';
+  ctx.globalAlpha = strength * 0.85;
+  ctx.drawImage(canvas, 0, 0, viewport.width, viewport.height);
+  ctx.restore();
+}
+
 function drawBloom(ctx: CanvasRenderingContext2D, viewport: Viewport, strength: number): void {
   const w = Math.max(1, Math.round(viewport.width / 4));
   const h = Math.max(1, Math.round(viewport.height / 4));
-  const canvas = getBloom(w, h);
-  const bctx = canvas.getContext('2d');
+  bloomCanvas = scratchCanvas(bloomCanvas, w, h);
+  const bctx = bloomCanvas.getContext('2d');
   if (!bctx) return;
 
   bctx.clearRect(0, 0, w, h);
-  bctx.filter = 'brightness(1.35) contrast(1.2) blur(6px)';
+  bctx.filter = 'brightness(1.3) contrast(1.25) blur(6px)';
   bctx.drawImage(ctx.canvas, 0, 0, w, h);
   bctx.filter = 'none';
 
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
   ctx.globalAlpha = strength;
-  ctx.drawImage(canvas, 0, 0, viewport.width, viewport.height);
+  ctx.drawImage(bloomCanvas, 0, 0, viewport.width, viewport.height);
   ctx.restore();
-}
-
-/**
- * Screen-print posterisation. This one *is* per-pixel — there is no composite trick for
- * quantising levels — so it is gated to the high tier and to the aperture only.
- */
-function drawPosterize(
-  ctx: CanvasRenderingContext2D,
-  viewport: Viewport,
-  levels: number,
-): void {
-  const w = Math.round(viewport.width * viewport.dpr);
-  const h = Math.round(viewport.height * viewport.dpr);
-  if (w === 0 || h === 0) return;
-
-  const image = ctx.getImageData(0, 0, w, h);
-  const data = image.data;
-  const step = 255 / (levels - 1);
-  for (let i = 0; i < data.length; i += 4) {
-    data[i] = Math.round(Math.round(data[i]! / step) * step);
-    data[i + 1] = Math.round(Math.round(data[i + 1]! / step) * step);
-    data[i + 2] = Math.round(Math.round(data[i + 2]! / step) * step);
-  }
-  ctx.putImageData(image, 0, 0);
 }
 
 function drawVignette(
@@ -176,10 +270,10 @@ function drawVignette(
   const gradient = ctx.createRadialGradient(
     width / 2,
     height / 2,
-    Math.min(width, height) * 0.28,
+    Math.min(width, height) * 0.3,
     width / 2,
     height / 2,
-    Math.max(width, height) * 0.78,
+    Math.max(width, height) * 0.8,
   );
   gradient.addColorStop(0, 'rgba(0,0,0,0)');
   gradient.addColorStop(1, `rgba(0,0,0,${strength})`);
@@ -187,40 +281,4 @@ function drawVignette(
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
   ctx.restore();
-}
-
-/**
- * Average colour of the live frame, in a few big blocks.
- *
- * Feeds the ambient backdrop, so the light behind the frame belongs to the same room as
- * the person in it. Sampled at 8×8 — anything larger is wasted, since the result is
- * immediately blurred into a wash.
- */
-export function sampleAmbient(video: HTMLVideoElement): string[] {
-  if (video.videoWidth === 0) return [];
-  const size = 8;
-  const canvas = getScratch(size, size);
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  if (!ctx) return [];
-
-  ctx.drawImage(video, 0, 0, size, size);
-  const { data } = ctx.getImageData(0, 0, size, size);
-
-  // Four quadrant averages: enough for a directional wash, cheap to compute.
-  const quadrants = [0, 0, 0, 0].map(() => ({ r: 0, g: 0, b: 0, n: 0 }));
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const q = (y < size / 2 ? 0 : 2) + (x < size / 2 ? 0 : 1);
-      const i = (y * size + x) * 4;
-      const target = quadrants[q]!;
-      target.r += data[i]!;
-      target.g += data[i + 1]!;
-      target.b += data[i + 2]!;
-      target.n++;
-    }
-  }
-
-  return quadrants.map(({ r, g, b, n }) =>
-    n === 0 ? 'rgb(0,0,0)' : `rgb(${Math.round(r / n)}, ${Math.round(g / n)}, ${Math.round(b / n)})`,
-  );
 }

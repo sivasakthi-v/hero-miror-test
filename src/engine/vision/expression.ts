@@ -10,13 +10,15 @@ import type { Expression } from './types';
 export type ExpressionState = 'neutral' | 'smiling' | 'sad' | 'surprised';
 
 /**
- * Thresholds are asymmetric on purpose: a state is harder to enter than to leave... no —
- * harder to *leave* than to enter would flicker. Entering needs a clear signal; leaving
- * uses a lower bar, so a state that has been earned holds steady through the small dips
- * that happen while someone holds an expression.
+ * Values are far lower than they look like they should be. MediaPipe blendshape scores
+ * for a clear, natural smile land around 0.3-0.5, not near 1 — thresholds set by
+ * intuition (0.42) meant a real person could smile broadly and trigger nothing at all.
+ *
+ * Entering needs a clear signal; leaving uses a lower bar, so a state that has been
+ * earned holds steady through the small dips that happen while someone holds it.
  */
-const ENTER = { smile: 0.42, sad: 0.35, surprise: 0.45 };
-const EXIT = { smile: 0.28, sad: 0.22, surprise: 0.3 };
+const ENTER = { smile: 0.22, sad: 0.24, surprise: 0.3 };
+const EXIT = { smile: 0.13, sad: 0.14, surprise: 0.18 };
 
 /**
  * Hysteresis, so an expression that sits near its threshold does not strobe the effect

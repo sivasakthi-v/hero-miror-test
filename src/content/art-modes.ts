@@ -1,126 +1,162 @@
 /**
- * The four looks (DECISIONS.md D7, revised).
+ * The four looks (DECISIONS.md D7, revised again).
  *
- * These are *photo treatments*, not line styles: each one grades the camera image into a
- * different photograph, then decorates it. A look is still only a parameter set, which is
- * why four of them stays affordable.
+ * Each is a *photograph*, not a tint: a base grade, a set of passes, and a promise that
+ * the face stays readable no matter how hard the rest is processed. Coverage is
+ * deliberate — one honest, one loud, one aged, one soft — so reloading gives a genuinely
+ * different picture.
  *
- * Coverage is deliberate — two bold, one editorial, one soft — so reloading gives a
- * genuinely different picture rather than a different accent colour.
+ * Every number here is relative to an auto-exposed image (see render/exposure.ts). The
+ * previous version hard-coded values against a mid-grey test frame, which is why a bright
+ * room collapsed one look into a flat rectangle.
  */
 
-export type ArtModeId = 'neon' | 'editorial' | 'poster' | 'dream';
+export type ArtModeId = 'lens' | 'expressive' | 'vintage' | 'soft';
 
-export interface PhotoGrade {
-  /** CSS filter applied while drawing the video. Cheap, GPU-accelerated, huge effect. */
-  filter: string;
-  /** Colour washed over the photo, and how. */
+export interface LookGrade {
+  /** Applied after auto-exposure. Contrast is pulled back automatically in blown scenes. */
+  contrast: number;
+  saturate: number;
+  /** Extra brightness on top of the exposure gain. 1 = none. */
+  brightness: number;
+  hueRotate: number;
+  /** Lifts blacks toward this colour — the faded-print look. 0 = pure blacks. */
+  lift: number;
+  liftColor: string;
+}
+
+export interface LookPasses {
+  /** Blurred highlights screened back on. */
+  bloom: number;
+  /** Warm glow bleeding from bright edges. Film halation. */
+  halation: number;
+  /** Shadows/highlights pushed toward two colours. */
+  duotone: [string, string] | null;
+  /** Colour washed over everything. */
   tint: string;
   tintMode: GlobalCompositeOperation;
   tintAlpha: number;
-  /** Duotone: shadows and highlights get pushed toward these. Empty = off. */
-  duotone: [string, string] | null;
-  /** Blurred bright pass screened back on top. 0 = off. */
-  bloom: number;
-  /** Darkened edges, keeping attention on the face. */
+  /** Whole-image diffusion — the soft-focus filter, not a blur of the face. */
+  diffusion: number;
+  /** Film burn blobs, dust, scratches, gate weave. */
+  film: number;
   vignette: number;
-  /** Film grain, now that the photo is actually in the canvas. */
   grain: number;
-  /** Posterise the image into N levels. 0 = off. Expensive; high tier only. */
-  posterize: number;
+  /**
+   * How much of the clean, unprocessed face is composited back at the end. The whole
+   * point of the effects is that the person stays clear inside them.
+   */
+  faceClarity: number;
 }
 
 export interface ArtMode {
   id: ArtModeId;
   label: string;
-  grade: PhotoGrade;
-  /** Ambient wash behind the frame; blended with colours sampled from the live image. */
+  grade: LookGrade;
+  passes: LookPasses;
+  /** Ambient wash behind the frame, blended with colours sampled from the live image. */
   ambient: [string, string];
-  /** Particles, frame shine, and any remaining marks. */
+  /** Particles and frame shine. */
   accent: string;
   glow: string;
 }
 
 export const ART_MODES: Record<ArtModeId, ArtMode> = {
-  // Bold. Graffiti wall at night: crushed blacks, electric split-tone, heavy bloom.
-  neon: {
-    id: 'neon',
-    label: 'neon',
-    grade: {
-      filter: 'contrast(1.35) saturate(1.6) brightness(0.95)',
-      tint: 'rgba(120, 40, 200, 0.30)',
-      tintMode: 'overlay',
-      tintAlpha: 0.85,
-      duotone: ['#12002e', '#ff4fd8'],
-      bloom: 0.55,
-      vignette: 0.55,
-      grain: 0.12,
-      posterize: 0,
-    },
-    ambient: ['#2a0b4a', '#ff2d9b'],
-    accent: 'rgba(255, 90, 200, 0.95)',
-    glow: 'rgba(255, 60, 190, 0.35)',
-  },
-
-  // Editorial. Still recognisably you, but lit like a magazine: filmic curve, warm
-  // highlights against cool shadows, fine grain.
-  editorial: {
-    id: 'editorial',
-    label: 'editorial',
-    grade: {
-      filter: 'contrast(1.18) saturate(0.85) sepia(0.18) brightness(1.02)',
-      tint: 'rgba(255, 196, 140, 0.14)',
+  // Honest camera. Corrected exposure, gentle contrast, a real lens vignette — what a
+  // good camera would have given you. The reference the others are judged against.
+  lens: {
+    id: 'lens',
+    label: 'lens',
+    grade: { contrast: 1.08, saturate: 1.06, brightness: 1, hueRotate: 0, lift: 0, liftColor: '#000' },
+    passes: {
+      bloom: 0.12,
+      halation: 0,
+      duotone: null,
+      tint: 'rgba(255, 240, 225, 0.05)',
       tintMode: 'soft-light',
       tintAlpha: 1,
-      duotone: null,
-      bloom: 0.18,
-      vignette: 0.62,
+      diffusion: 0,
+      film: 0,
+      vignette: 0.42,
+      grain: 0.035,
+      faceClarity: 0.25,
+    },
+    ambient: ['#161a22', '#7d8ba3'],
+    accent: 'rgba(238, 240, 245, 0.95)',
+    glow: 'rgba(150, 175, 210, 0.3)',
+  },
+
+  // Loud. Teal shadows against orange skin, heavy bloom, deep vignette. The one that
+  // reads as "edited" from across the room.
+  expressive: {
+    id: 'expressive',
+    label: 'expressive',
+    grade: { contrast: 1.22, saturate: 1.45, brightness: 1.02, hueRotate: -6, lift: 0.06, liftColor: '#0b2a3a' },
+    passes: {
+      bloom: 0.5,
+      halation: 0.25,
+      duotone: ['#06283d', '#ff9a5c'],
+      tint: 'rgba(255, 120, 60, 0.18)',
+      tintMode: 'overlay',
+      tintAlpha: 0.9,
+      diffusion: 0.1,
+      film: 0,
+      vignette: 0.6,
       grain: 0.07,
-      posterize: 0,
+      faceClarity: 0.5,
     },
-    ambient: ['#1b1512', '#c98f5a'],
-    accent: 'rgba(244, 226, 198, 0.9)',
-    glow: 'rgba(220, 170, 110, 0.28)',
+    ambient: ['#04202f', '#ff8a4c'],
+    accent: 'rgba(255, 154, 92, 0.95)',
+    glow: 'rgba(255, 130, 70, 0.32)',
   },
 
-  // Expressive. Screen-print: few tones, hard edges, one loud ink.
-  poster: {
-    id: 'poster',
-    label: 'poster',
-    grade: {
-      filter: 'contrast(1.7) saturate(0.4) brightness(1.05)',
-      tint: 'rgba(255, 72, 40, 0.35)',
-      tintMode: 'multiply',
-      tintAlpha: 0.9,
-      duotone: ['#0d0d12', '#ffd23f'],
-      bloom: 0.1,
-      vignette: 0.4,
-      grain: 0.15,
-      posterize: 5,
+  // Aged. Faded blacks, warm cast, halation around highlights, burns and dust drifting
+  // across the frame. The face is protected hardest here, because film damage over a
+  // face reads as a broken video rather than a treatment.
+  vintage: {
+    id: 'vintage',
+    label: 'vintage',
+    grade: { contrast: 1.05, saturate: 0.72, brightness: 1.02, hueRotate: -8, lift: 0.14, liftColor: '#3a2a18' },
+    passes: {
+      bloom: 0.2,
+      halation: 0.55,
+      duotone: ['#2b1d10', '#ffd9a0'],
+      tint: 'rgba(214, 158, 90, 0.22)',
+      tintMode: 'soft-light',
+      tintAlpha: 1,
+      diffusion: 0.15,
+      film: 0.9,
+      vignette: 0.68,
+      grain: 0.16,
+      faceClarity: 0.62,
     },
-    ambient: ['#12121a', '#ff5a2e'],
-    accent: 'rgba(255, 210, 63, 0.95)',
-    glow: 'rgba(255, 120, 40, 0.3)',
+    ambient: ['#2a1c10', '#d9a05a'],
+    accent: 'rgba(255, 214, 160, 0.95)',
+    glow: 'rgba(220, 160, 90, 0.3)',
   },
 
-  // Soft. Overexposed film, pastel bloom, almost no contrast. The quiet one.
-  dream: {
-    id: 'dream',
-    label: 'dream',
-    grade: {
-      filter: 'contrast(0.92) saturate(1.15) brightness(1.12) blur(0.3px)',
-      tint: 'rgba(150, 190, 255, 0.22)',
-      tintMode: 'screen',
-      tintAlpha: 0.9,
+  // Soft. Heavy diffusion, lifted shadows, pastel cast — a portrait through a stocking
+  // filter. Clarity is kept high so it is flattering rather than smeared.
+  soft: {
+    id: 'soft',
+    label: 'soft',
+    grade: { contrast: 0.94, saturate: 1.12, brightness: 1.06, hueRotate: 4, lift: 0.12, liftColor: '#2a2340' },
+    passes: {
+      bloom: 0.45,
+      halation: 0.2,
       duotone: null,
-      bloom: 0.75,
-      vignette: 0.3,
-      grain: 0.05,
-      posterize: 0,
+      tint: 'rgba(190, 175, 255, 0.16)',
+      tintMode: 'screen',
+      tintAlpha: 0.85,
+      diffusion: 0.55,
+      film: 0,
+      vignette: 0.34,
+      grain: 0.04,
+      faceClarity: 0.45,
     },
-    ambient: ['#141a35', '#8fb7ff'],
-    accent: 'rgba(190, 215, 255, 0.95)',
-    glow: 'rgba(120, 165, 255, 0.35)',
+    ambient: ['#1a1730', '#c9b6ff'],
+    accent: 'rgba(214, 200, 255, 0.95)',
+    glow: 'rgba(160, 140, 255, 0.33)',
   },
 };
 
