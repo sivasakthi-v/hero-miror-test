@@ -90,8 +90,9 @@ export const capture = {
   action: 'CAPTURE',
   actionLabel: 'Capture portrait',
   // Short on purpose. The picture is the message; anything longer competes with it.
-  done: 'look at that.',
-  thanks: 'Yours to keep — thanks for stopping by.',
+  done: 'Happy you stopped by',
+  thanks:
+    'Here’s a tiny piece of me, just for you. A souvenir for wanting to know the person behind the screen. Take it with you and don’t forget me along the way.',
   save: 'DOWNLOAD',
   share: 'SHARE',
   again: 'TAKE ANOTHER',
@@ -102,7 +103,7 @@ export const capture = {
 export const nav = {
   wordmark: 'Siva Sakthi',
   links: ['Home', 'Works', 'About', 'Playground', 'Resume'],
-  cta: 'Get in touch',
+  cta: 'GET IN TOUCH',
   email: 'sivavenkat372@gmail.com',
 } as const;
 

@@ -1,4 +1,4 @@
-import { CAPTION_NAME, captionText, type Caption } from '@/content/copy';
+import { captionText, type Caption } from '@/content/copy';
 
 /**
  * The polaroid the visitor keeps.
@@ -78,10 +78,9 @@ export function captionBand(layout: PosterLayout): { x: number; y: number; width
  * The caption, centred in the bottom band.
  *
  * The size is *measured down* until the line fits rather than set and hoped for. These
- * lines vary from 18 to 40 characters, and a fixed size that suits the shortest one runs
+ * lines vary from 18 to 46 characters, and a fixed size that suits the shortest one runs
  * off the edge of the longest — which does not just look bad, it breaks the illusion of
- * a physical object. The name is set bold and the rest regular, so it reads as a person
- * saying something rather than as a watermark.
+ * a physical object.
  */
 export function drawCaption(
   ctx: CanvasRenderingContext2D,
@@ -90,7 +89,6 @@ export function drawCaption(
 ): void {
   const band = captionBand(layout);
   const text = captionText(caption);
-  const rest = text.slice(CAPTION_NAME.length);
 
   // Never wider than the photo, with real breathing room at both ends.
   const maxWidth = band.width * 0.88;
@@ -98,37 +96,33 @@ export function drawCaption(
   const minSize = Math.round(band.height * 0.12);
 
   const measure = (px: number): number => {
-    ctx.font = `700 ${px}px "Instrument Sans", system-ui, sans-serif`;
-    const nameWidth = ctx.measureText(CAPTION_NAME).width;
     ctx.font = `${px}px "Instrument Sans", system-ui, sans-serif`;
-    return nameWidth + ctx.measureText(rest).width;
+    return ctx.measureText(text).width;
   };
 
   while (size > minSize && measure(size) > maxWidth) size -= 1;
 
-  const total = measure(size);
-  const startX = band.x + (band.width - total) / 2;
-  const y = band.y + band.height * 0.46;
-
-  ctx.save();
-  ctx.textBaseline = 'middle';
-
-  ctx.font = `700 ${size}px "Instrument Sans", system-ui, sans-serif`;
-  ctx.fillStyle = 'rgba(28, 24, 18, 0.92)';
-  ctx.fillText(CAPTION_NAME, startX, y);
-  const nameWidth = ctx.measureText(CAPTION_NAME).width;
-
-  ctx.font = `${size}px "Instrument Sans", system-ui, sans-serif`;
-  ctx.fillStyle = 'rgba(58, 50, 38, 0.82)';
-  ctx.fillText(rest, startX + nameWidth, y);
-  ctx.restore();
-
-  // The credit, small and quiet, under the line it belongs to.
+  // One weight throughout. Setting the name bold pulled the eye to the sender when the
+  // whole point of the line is the message.
   ctx.save();
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = `italic ${Math.round(size * 0.52)}px "Instrument Serif", Georgia, serif`;
-  ctx.fillStyle = 'rgba(80, 70, 55, 0.6)';
-  ctx.fillText('siva serafino · 2026', band.x + band.width / 2, band.y + band.height * 0.78);
+  ctx.font = `${size}px "Instrument Sans", system-ui, sans-serif`;
+  ctx.fillStyle = 'rgba(38, 32, 24, 0.9)';
+  ctx.fillText(text, band.x + band.width / 2, band.y + band.height * 0.44);
+  ctx.restore();
+
+  // The credit: caps, tracked, and darker than it was. It is the only permanent mark on
+  // the print, and set quietly in lowercase italic it read as a printing artefact.
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `600 ${Math.round(size * 0.5)}px "Instrument Sans", system-ui, sans-serif`;
+  ctx.fillStyle = 'rgba(52, 44, 34, 0.85)';
+  // letterSpacing is not in every canvas implementation yet; the line simply sets
+  // untracked where it is missing rather than failing.
+  ctx.letterSpacing = `${(size * 0.06).toFixed(1)}px`;
+  ctx.fillText('SIVA SERAFINO · 2026', band.x + band.width / 2, band.y + band.height * 0.76);
+  ctx.letterSpacing = '0px';
   ctx.restore();
 }
