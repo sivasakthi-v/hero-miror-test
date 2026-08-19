@@ -34,7 +34,12 @@ export type CameraFailure =
   | 'unknown';
 
 export type HeroEvent =
-  | { type: 'SUPPORT_CHECKED'; supported: boolean }
+  /**
+   * `reason` carries why support failed. Without it the fallback screen cannot tell a
+   * missing camera from an in-app browser from plain http, and every one of them
+   * collapses into "I cannot tell you why" — which is the least useful thing to say.
+   */
+  | { type: 'SUPPORT_CHECKED'; supported: boolean; reason: CameraFailure | null }
   | { type: 'BEGIN' }
   | { type: 'CAMERA_GRANTED' }
   | { type: 'CAMERA_FAILED'; reason: CameraFailure }
@@ -137,6 +142,7 @@ function nextFailure(
   if (event.type === 'CAMERA_FAILED') {
     return next === context.state ? context.failure : event.reason;
   }
+  if (event.type === 'SUPPORT_CHECKED' && !event.supported) return event.reason ?? 'unknown';
   if (event.type === 'CAMERA_LOST' && next === 'camera_error') return 'lost';
   // A granted camera clears the past. Without this, a visitor who denies, retries and
   // succeeds keeps `failure: 'denied'` forever, and anything keyed off the reason

@@ -26,8 +26,8 @@ const ALL_STATES: HeroState[] = [
 ];
 
 const ALL_EVENTS: HeroEvent[] = [
-  { type: 'SUPPORT_CHECKED', supported: true },
-  { type: 'SUPPORT_CHECKED', supported: false },
+  { type: 'SUPPORT_CHECKED', supported: true, reason: null },
+  { type: 'SUPPORT_CHECKED', supported: false, reason: null },
   { type: 'BEGIN' },
   { type: 'CAMERA_GRANTED' },
   { type: 'CAMERA_FAILED', reason: 'denied' },
@@ -48,7 +48,7 @@ const ALL_EVENTS: HeroEvent[] = [
 describe('hero machine', () => {
   it('walks the happy path from boot to a saved portrait', () => {
     const path: HeroEvent[] = [
-      { type: 'SUPPORT_CHECKED', supported: true },
+      { type: 'SUPPORT_CHECKED', supported: true, reason: null },
       { type: 'BEGIN' },
       { type: 'CAMERA_GRANTED' },
       { type: 'MODEL_READY' },
@@ -88,7 +88,7 @@ describe('hero machine', () => {
     it('survives the double-tapped BEGIN race end to end', () => {
       // tap, tap, second request wins, first request's rejection lands late.
       const events: HeroEvent[] = [
-        { type: 'SUPPORT_CHECKED', supported: true },
+        { type: 'SUPPORT_CHECKED', supported: true, reason: null },
         { type: 'BEGIN' },
         { type: 'BEGIN' },
         { type: 'CAMERA_GRANTED' },
@@ -111,7 +111,7 @@ describe('hero machine', () => {
 
     it('clears the failure reason once a camera is granted', () => {
       const denied = [
-        { type: 'SUPPORT_CHECKED', supported: true },
+        { type: 'SUPPORT_CHECKED', supported: true, reason: null },
         { type: 'BEGIN' },
         { type: 'CAMERA_FAILED', reason: 'denied' },
       ] satisfies HeroEvent[];
@@ -126,7 +126,9 @@ describe('hero machine', () => {
   });
 
   it('separates a denial from a device/environment failure', () => {
-    expect(transition('requesting', { type: 'CAMERA_FAILED', reason: 'denied' })).toBe('denied');
+    expect(transition('requesting', { type: 'CAMERA_FAILED', reason: 'denied' })).toBe(
+      'denied',
+    );
     expect(transition('requesting', { type: 'CAMERA_FAILED', reason: 'in_app_browser' })).toBe(
       'camera_error',
     );
@@ -150,7 +152,9 @@ describe('hero machine', () => {
   it('treats STOP and unsupported as global', () => {
     for (const state of ALL_STATES) {
       expect(transition(state, { type: 'STOP' })).toBe('stopped');
-      expect(transition(state, { type: 'SUPPORT_CHECKED', supported: false })).toBe('unsupported');
+      expect(
+        transition(state, { type: 'SUPPORT_CHECKED', supported: false, reason: null }),
+      ).toBe('unsupported');
     }
   });
 
@@ -171,7 +175,7 @@ describe('hero machine', () => {
   it('gives every fallback state a recorded reason to render copy from', () => {
     const ctx = (
       [
-        { type: 'SUPPORT_CHECKED', supported: true },
+        { type: 'SUPPORT_CHECKED', supported: true, reason: null },
         { type: 'BEGIN' },
         { type: 'CAMERA_FAILED', reason: 'in_app_browser' },
       ] satisfies HeroEvent[]
@@ -180,8 +184,27 @@ describe('hero machine', () => {
     expect(ctx.failure).toBe('in_app_browser');
   });
 
+  // Regression: making CAMERA_FAILED state-guarded silently swallowed the reason that
+  // the support check reported at boot, so "no camera on this device" and "you are
+  // inside the Instagram browser" both rendered as "I cannot tell you why".
+  it('keeps the reason the support check reported', () => {
+    for (const reason of ['no_device', 'in_app_browser', 'insecure_context'] as const) {
+      const ctx = reduce(INITIAL_CONTEXT, {
+        type: 'SUPPORT_CHECKED',
+        supported: false,
+        reason,
+      });
+      expect(ctx).toEqual({ state: 'unsupported', failure: reason });
+      expect(isFallback(ctx.state)).toBe(true);
+    }
+  });
+
   it('returns the same object when nothing changed, so subscribers do not churn', () => {
-    const ctx = reduce(INITIAL_CONTEXT, { type: 'SUPPORT_CHECKED', supported: true });
+    const ctx = reduce(INITIAL_CONTEXT, {
+      type: 'SUPPORT_CHECKED',
+      supported: true,
+      reason: null,
+    });
     expect(reduce(ctx, { type: 'FACE_FOUND' })).toBe(ctx);
   });
 });

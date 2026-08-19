@@ -23,6 +23,11 @@ export const intro = {
   privacyNote: 'The only thing I collect is an anonymous count of how many people tried this.',
 } as const;
 
+export const permission = {
+  requesting: 'look up — your browser is asking.',
+  hint: 'choose Allow, and I can start drawing.',
+} as const;
+
 export const live = {
   firstDetection: 'oh, there you are.',
   stabilised: 'you look beautiful.',
@@ -75,7 +80,43 @@ export const fallback = {
     body: ["That's okay.", 'The work is all still here.'],
     action: 'EXPLORE',
   },
+  inUse: {
+    title: 'Something else has the camera.',
+    body: ['Another app is using it —', 'a call, maybe.', '', 'Close that and try again.'],
+    action: 'EXPLORE ANYWAY',
+    retry: 'TRY AGAIN',
+  },
+  insecure: {
+    title: 'This page needs a padlock.',
+    body: ['Cameras only work over https.', 'Nothing personal.'],
+    action: 'EXPLORE',
+  },
+  unknown: {
+    title: 'That did not go to plan.',
+    body: ['The camera did not open,', 'and I cannot tell you why.', '', 'The work is still here.'],
+    action: 'EXPLORE WORK',
+    retry: 'TRY AGAIN',
+  },
 } as const;
+
+/** Maps a machine failure reason to the screen the visitor should see. */
+export function fallbackFor(reason: string | null) {
+  switch (reason) {
+    case 'denied':
+      return fallback.denied;
+    case 'no_device':
+      return fallback.noDevice;
+    case 'in_app_browser':
+      return fallback.inAppBrowser;
+    case 'in_use':
+    case 'lost':
+      return fallback.inUse;
+    case 'insecure_context':
+      return fallback.insecure;
+    default:
+      return fallback.unknown;
+  }
+}
 
 /** Ambient lines used by the graffiti system (blueprint §37). */
 export const ambient = [
