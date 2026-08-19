@@ -117,8 +117,8 @@ describe('smoothing', () => {
   it('smooths expressions more slowly than geometry', () => {
     const geometry = smoothLandmarks(flat(0), flat(1), 16)[0]!.x;
     const expression = smoothExpression(
-      { smile: 0, mouthOpen: 0, browLift: 0, eyeOpen: 0 },
-      { smile: 1, mouthOpen: 1, browLift: 1, eyeOpen: 1 },
+      { smile: 0, mouthOpen: 0, browLift: 0, eyeOpen: 0, sadness: 0, surprise: 0 },
+      { smile: 1, mouthOpen: 1, browLift: 1, eyeOpen: 1, sadness: 1, surprise: 1 },
       16,
     ).smile;
     expect(expression).toBeLessThan(geometry);

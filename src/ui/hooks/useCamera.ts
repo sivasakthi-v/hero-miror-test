@@ -18,6 +18,8 @@ export interface UseCamera {
   delegate: 'GPU' | 'CPU' | null;
   artMode: ArtModeId;
   setArtMode: (mode: ArtModeId) => void;
+  ambientRef: React.RefObject<HTMLCanvasElement | null>;
+  shineRef: React.RefObject<number>;
   begin: () => void;
   retry: () => void;
 }
@@ -39,6 +41,8 @@ export function useCamera(debug: boolean): UseCamera {
 
   const {
     canvasRef,
+    ambientRef,
+    shineRef,
     artMode,
     setArtMode,
     start: startTracking,
@@ -132,6 +136,8 @@ export function useCamera(debug: boolean): UseCamera {
     context,
     videoRef,
     canvasRef,
+    ambientRef,
+    shineRef,
     delegate: delegateRef.current,
     artMode,
     setArtMode,

@@ -63,5 +63,7 @@ export function smoothExpression(
     mouthOpen: lerp(previous.mouthOpen, next.mouthOpen, t),
     browLift: lerp(previous.browLift, next.browLift, t),
     eyeOpen: lerp(previous.eyeOpen, next.eyeOpen, t),
+    sadness: lerp(previous.sadness, next.sadness, t),
+    surprise: lerp(previous.surprise, next.surprise, t),
   };
 }

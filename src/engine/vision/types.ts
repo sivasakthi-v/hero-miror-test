@@ -26,6 +26,9 @@ export interface Expression {
   mouthOpen: number;
   browLift: number;
   eyeOpen: number;
+  /** Composite signals — a frown alone also means concentration. See vision/expression. */
+  sadness: number;
+  surprise: number;
 }
 
 export interface FaceState {

@@ -67,6 +67,8 @@ export const NEUTRAL_EXPRESSION: Expression = {
   mouthOpen: 0,
   browLift: 0,
   eyeOpen: 1,
+  sadness: 0,
+  surprise: 0,
 };
 
 /**
@@ -78,11 +80,21 @@ export function deriveExpression(blendshapes: Record<string, number> | null): Ex
   const mean = (a: string, b: string): number =>
     ((blendshapes[a] ?? 0) + (blendshapes[b] ?? 0)) / 2;
 
+  const mouthOpen = blendshapes['jawOpen'] ?? 0;
+  const browLift = mean('browOuterUpLeft', 'browOuterUpRight');
+  const frown = mean('mouthFrownLeft', 'mouthFrownRight');
+  const innerBrow = blendshapes['browInnerUp'] ?? 0;
+
   return {
     smile: mean('mouthSmileLeft', 'mouthSmileRight'),
-    mouthOpen: blendshapes['jawOpen'] ?? 0,
-    browLift: mean('browOuterUpLeft', 'browOuterUpRight'),
+    mouthOpen,
+    browLift,
     // Blendshapes report how *closed* an eye is, so invert to get openness.
     eyeOpen: 1 - mean('eyeBlinkLeft', 'eyeBlinkRight'),
+    // A frown on its own is also what concentrating looks like; real sadness carries
+    // the inner-brow raise with it, so both are required.
+    sadness: Math.min(frown * 0.65 + innerBrow * 0.55, 1),
+    // An open jaw alone is a yawn. Lifted brows are what make it surprise.
+    surprise: Math.min(mouthOpen * 0.6 + browLift * 0.6, 1),
   };
 }

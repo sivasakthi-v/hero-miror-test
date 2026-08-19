@@ -1,20 +1,48 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { fallbackFor, identity, intro, live, permission } from '@/content/copy';
 import { isCameraRunning, isFallback } from '@/engine/state/machine';
 import { useCamera } from '@/ui/hooks/useCamera';
 import { StylePicker } from './StylePicker';
 import './hero.css';
+import './frame.css';
 
 const DEBUG = new URLSearchParams(window.location.search).has('debug');
 
 export function Hero() {
-  const { context, videoRef, canvasRef, delegate, artMode, setArtMode, begin, retry } =
-    useCamera(DEBUG);
+  const {
+    context,
+    videoRef,
+    canvasRef,
+    ambientRef,
+    shineRef,
+    delegate,
+    artMode,
+    setArtMode,
+    begin,
+    retry,
+  } = useCamera(DEBUG);
   const { state } = context;
+  const frameRef = useRef<HTMLDivElement>(null);
 
   const showIntro = state === 'boot' || state === 'idle' || state === 'requesting';
   const showFallback = isFallback(state);
   const cameraOn = isCameraRunning(state);
+
+  /**
+   * The shine is written straight to a CSS variable rather than held in state. It changes
+   * every frame, and putting it through React would re-render the tree 60 times a second
+   * to move a highlight (docs/PLAN.md §3).
+   */
+  useEffect(() => {
+    if (!cameraOn) return;
+    let id = 0;
+    const tick = () => {
+      id = requestAnimationFrame(tick);
+      frameRef.current?.style.setProperty('--shine', shineRef.current.toFixed(3));
+    };
+    id = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(id);
+  }, [cameraOn, shineRef]);
 
   return (
     <section className="hero" data-state={state}>
@@ -24,6 +52,9 @@ export function Hero() {
       </h1>
       <p className="visually-hidden">{identity.statement}</p>
 
+      {/* Light spilling from the picture into the room, sampled from the camera. */}
+      <canvas ref={ambientRef} className="hero__ambient" aria-hidden="true" data-on={cameraOn} />
+
       <div className="hero__stage">
         <div className="hero__copy">
           {showIntro && <IntroCopy state={state} onBegin={begin} />}
@@ -31,27 +62,37 @@ export function Hero() {
           {cameraOn && <p className="hero__title">{liveCopyFor(state)}</p>}
         </div>
 
-        <div className="hero__aperture">
-          {/* Mirrored, because a visitor expects a mirror. The single mirror lives here
-              and in the transform module's `mirrored` flag — never applied twice. */}
-          <video
-            ref={videoRef}
-            className="hero__video"
-            autoPlay
-            muted
-            playsInline
-            aria-label="Live camera preview"
-            data-visible={cameraOn}
-          />
-          {/* Face artwork lives here, above the video and inside the same aperture, so
-              it inherits the identical crop. P2 draws the debug outline; P3 the art. */}
-          <canvas ref={canvasRef} className="hero__canvas" aria-hidden="true" />
-          {cameraOn && !DEBUG && <StylePicker value={artMode} onChange={setArtMode} />}
-          {!cameraOn && (
-            <span className="hero__placeholder" aria-hidden="true">
-              {state === 'requesting' ? permission.hint : ''}
-            </span>
-          )}
+        <div className="hero__frame-wrap">
+          <div className="frame" ref={frameRef} data-on={cameraOn}>
+            <div className="hero__aperture">
+              {/*
+                The video is the source, not the picture: every frame is drawn into the
+                canvas so the treatment can act on its pixels. It stays in the DOM,
+                playing and invisible — a display:none video stops delivering frames.
+              */}
+              <video
+                ref={videoRef}
+                className="hero__source"
+                autoPlay
+                muted
+                playsInline
+                aria-hidden="true"
+              />
+              <canvas
+                ref={canvasRef}
+                className="hero__canvas"
+                data-visible={cameraOn}
+                role="img"
+                aria-label="Live camera portrait"
+              />
+              {cameraOn && !DEBUG && <StylePicker value={artMode} onChange={setArtMode} />}
+              {!cameraOn && (
+                <span className="hero__placeholder" aria-hidden="true">
+                  {state === 'requesting' ? permission.hint : ''}
+                </span>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -119,7 +160,7 @@ function FallbackCopy({ reason, onRetry }: { reason: string | null; onRetry: () 
   );
 }
 
-/** `?debug=1`. Verifies tracking, cropping and mirroring before any artwork exists. */
+/** `?debug=1`. Ungraded photo plus the tracking overlay, for checking the maths. */
 function DebugPanel({
   state,
   failure,
