@@ -5,8 +5,10 @@ import type { SceneAnalysis } from '@/engine/render/exposure';
 import { createParticleField } from '@/engine/render/particles';
 import { createViewport } from '@/engine/transform/viewport';
 import type { FaceState } from '@/engine/vision/types';
-import { drawSeam, drawSignature, drawStock, posterLayout } from './poster';
-import { drawStickers, pickStickers } from './stickers';
+import { captionBand, drawCaption, drawSeam, drawStock, posterLayout } from './poster';
+import { drawSticker, pickSticker } from './stickers';
+import { pickCaption } from '@/content/copy';
+import { mulberry32 } from '@/lib/rng';
 
 /**
  * Two outputs from one capture, because they go to different places.
@@ -27,7 +29,7 @@ import { drawStickers, pickStickers } from './stickers';
  * The track resolution is a hard ceiling (docs/PLAN.md R1). Upscaling past it adds no
  * detail, only weight.
  */
-const MAX_PHOTO_WIDTH = 1800;
+const MAX_PHOTO_WIDTH = 1600;
 
 /** Room around the polaroid for stickers to overhang into. Transparent in the download. */
 const OVERHANG = 0.14;
@@ -108,13 +110,17 @@ export async function renderPortrait(options: CaptureOptions): Promise<CapturedP
   }
 
   drawSeam(ctx, layout);
-  drawSignature(ctx, layout);
+
+  // A different line each capture, chosen from the seed so the same shot is repeatable.
+  const random = mulberry32(options.sessionSeed + Math.floor(Date.now() / 997));
+  drawCaption(ctx, layout, pickCaption(random));
   ctx.restore();
 
   // Stickers last, outside the translate, so they can hang past the stock into the
   // transparent margin — which is the entire point of the margin.
-  const stickers = await pickStickers(layout, options.sessionSeed + Math.floor(Date.now() / 997));
-  drawStickers(ctx, stickers, { x: margin, y: margin });
+  // Exactly one, and never over the caption band — the words are the point of the print.
+  const sticker = await pickSticker(layout, captionBand(layout), random);
+  if (sticker) drawSticker(ctx, sticker, { x: margin, y: margin });
 
   return { print, card: renderShareCard(print, aspect, mode, options.scene) };
 }
@@ -179,16 +185,28 @@ function renderShareCard(
 }
 
 /**
- * The download is PNG because the polaroid is a cut-out sitting on transparency, and
- * JPEG has no alpha — it would fill the overhang with black. The share card is JPEG: a
- * full-bleed image with nothing to keep transparent, at a fifth of the weight, which
- * matters on a phone.
+ * Encoding, chosen per output.
+ *
+ * The download needs alpha, which rules JPEG out — it would fill the transparent
+ * overhang with black. That left PNG at 3.6MB for a grainy photograph, which is a lot to
+ * hand someone on a phone. WebP keeps the alpha and encodes the same print at a fraction
+ * of the size, so it is tried first and PNG is the fallback where the browser cannot
+ * encode it. The returned type tells the caller which extension to use.
  */
+export async function encodePrint(canvas: HTMLCanvasElement): Promise<Blob | null> {
+  const webp = await toBlob(canvas, 'image/webp', 0.94);
+  // A browser that cannot encode WebP silently hands back a PNG, so check what arrived
+  // rather than trusting the request.
+  if (webp && webp.type === 'image/webp') return webp;
+  return toBlob(canvas, 'image/png');
+}
+
 export async function toBlob(
   canvas: HTMLCanvasElement,
-  type: 'image/png' | 'image/jpeg',
+  type: 'image/png' | 'image/jpeg' | 'image/webp',
+  quality?: number,
 ): Promise<Blob | null> {
   return new Promise((resolve) => {
-    canvas.toBlob((blob) => resolve(blob), type, type === 'image/jpeg' ? 0.92 : undefined);
+    canvas.toBlob((blob) => resolve(blob), type, quality);
   });
 }

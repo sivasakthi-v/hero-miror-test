@@ -6,10 +6,62 @@
  * Text is the blueprint's §81 copy system, verbatim.
  */
 
-export const SIGNATURE_LEAD = 'You' as const;
-export const SIGNATURE_REST = ' by Siva Serafino · 2026' as const;
-export const SIGNATURE = `${SIGNATURE_LEAD}${SIGNATURE_REST}` as const;
+/**
+ * The line printed on the polaroid, in place of a signature.
+ *
+ * Structure is fixed name + verb + message, so the voice stays consistent while the
+ * message never repeats for the same visitor. Each is short enough to set on one line
+ * inside the frame, which is a hard constraint rather than a style preference: the band
+ * is only so wide, and a caption that overflows the print ruins the object.
+ *
+ * Tone: warm, specific, a little funny, never saccharine. The test for each is whether
+ * a stranger would smile at it and not feel sold to.
+ */
+export const CAPTION_NAME = 'Siva' as const;
+
+export interface Caption {
+  verb: string;
+  message: string;
+}
+
+export const CAPTIONS: Caption[] = [
+  { verb: 'thinks', message: "you're cool" },
+  { verb: 'hopes', message: "today's kind to you" },
+  { verb: 'knows', message: "you've got this" },
+  { verb: 'bets', message: "you made someone's day" },
+  { verb: 'says', message: 'you look great today' },
+  { verb: 'reckons', message: "you're doing better than you think" },
+  { verb: 'hopes', message: 'you feel proud of you' },
+  { verb: 'thinks', message: "the world's luckier with you here" },
+  { verb: 'wishes', message: 'you a ridiculously good day' },
+  { verb: 'swears', message: 'that smile suits you' },
+  { verb: 'says', message: 'take the compliment' },
+  { verb: 'knows', message: "you're someone's favourite person" },
+  { verb: 'hopes', message: 'you go easy on yourself today' },
+  { verb: 'thinks', message: "you're doing great, actually" },
+  { verb: 'bets', message: "you're braver than yesterday" },
+  { verb: 'says', message: 'you deserve the good stuff' },
+  { verb: 'hopes', message: 'something lovely finds you today' },
+  { verb: 'knows', message: 'you were worth the wait' },
+  { verb: 'thinks', message: 'you should call your people' },
+  { verb: 'says', message: 'drink some water, legend' },
+  { verb: 'reckons', message: "today's got your name on it" },
+  { verb: 'hopes', message: 'you laugh far too loudly today' },
+  { verb: 'thinks', message: "you're exactly enough" },
+  { verb: 'says', message: 'keep going, it suits you' },
+  { verb: 'knows', message: "you'll be just fine" },
+];
+
+export function captionText(caption: Caption): string {
+  return `${CAPTION_NAME} ${caption.verb} ${caption.message}`;
+}
+
+export function pickCaption(random: () => number = Math.random): Caption {
+  const index = Math.min(CAPTIONS.length - 1, Math.floor(random() * CAPTIONS.length));
+  return CAPTIONS[index] ?? CAPTIONS[0]!;
+}
 export const CAPTURE_FILENAME = 'you-by-siva-serafino.png' as const;
+export const PRINT_FILENAME_WEBP = 'you-by-siva-serafino.webp' as const;
 export const SHARE_FILENAME = 'you-by-siva-serafino-share.jpg' as const;
 
 export const intro = {

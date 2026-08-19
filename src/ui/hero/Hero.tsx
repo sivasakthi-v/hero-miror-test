@@ -96,6 +96,9 @@ export function Hero() {
                 role="img"
                 aria-label="Live camera portrait"
               />
+              {cameraOn && !capture.preview && (
+                <CaptureButton onClick={capture.capture} busy={capture.busy} />
+              )}
               {cameraOn && !DEBUG && <StylePicker value={artMode} onChange={setArtMode} />}
               {!cameraOn && (
                 <span className="hero__placeholder" aria-hidden="true">
@@ -106,9 +109,6 @@ export function Hero() {
             <span className="hero__flash" aria-hidden="true" />
           </div>
 
-          {cameraOn && !capture.preview && (
-            <CaptureButton onClick={capture.capture} busy={capture.busy} />
-          )}
           {capture.preview && (
             <CapturePreview
               src={capture.preview}

@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ArtMode } from '@/content/art-modes';
-import { renderPortrait, toBlob } from '@/engine/capture/capture-renderer';
+import { encodePrint, renderPortrait, toBlob } from '@/engine/capture/capture-renderer';
 import { canShareImage, downloadBlob, shareImage } from '@/engine/capture/download';
 import { preloadStickers } from '@/engine/capture/stickers';
 import type { SceneAnalysis } from '@/engine/render/exposure';
 import { count } from '@/engine/metrics/count';
 import type { FaceState } from '@/engine/vision/types';
-import { SHARE_FILENAME } from '@/content/copy';
+import { CAPTURE_FILENAME, PRINT_FILENAME_WEBP, SHARE_FILENAME } from '@/content/copy';
 
 /**
  * The shutter.
@@ -87,8 +87,8 @@ export function useCapture(
 
           // Download keeps its alpha; the share card does not need any.
           const [print, card] = await Promise.all([
-            toBlob(portrait.print, 'image/png'),
-            toBlob(portrait.card, 'image/jpeg'),
+            encodePrint(portrait.print),
+            toBlob(portrait.card, 'image/jpeg', 0.92),
           ]);
           if (!print) {
             onStateChange('failed');
@@ -114,7 +114,9 @@ export function useCapture(
 
   const save = useCallback(() => {
     if (!printRef.current) return;
-    downloadBlob(printRef.current);
+    // Extension follows what the browser actually encoded.
+    const name = printRef.current.type === 'image/webp' ? PRINT_FILENAME_WEBP : CAPTURE_FILENAME;
+    downloadBlob(printRef.current, name);
     count('portrait_saved');
   }, []);
 

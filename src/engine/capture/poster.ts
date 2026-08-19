@@ -1,4 +1,4 @@
-import { SIGNATURE_LEAD, SIGNATURE_REST } from '@/content/copy';
+import { CAPTION_NAME, captionText, type Caption } from '@/content/copy';
 
 /**
  * The polaroid the visitor keeps.
@@ -64,45 +64,71 @@ export function drawSeam(ctx: CanvasRenderingContext2D, layout: PosterLayout): v
   ctx.restore();
 }
 
+
 /**
- * The signature, in the bottom band.
- *
- * Set in an italic serif and rotated very slightly: a real hand does not write level, and
- * a perfectly horizontal line here immediately reads as a watermark rather than an
- * autograph. A proper hand-drawn SVG signature replaces this once Siva draws one — the
- * blueprint asks for it, and no web font is loaded for this route on purpose.
+ * The band below the photo, where the caption lives. Exported because the sticker
+ * placement needs to know exactly where not to go.
  */
-export function drawSignature(ctx: CanvasRenderingContext2D, layout: PosterLayout): void {
-  const { photo, height, width } = layout;
-  const bandTop = photo.y + photo.height;
-  const bandHeight = height - bandTop;
-  const size = Math.round(bandHeight * 0.2);
+export function captionBand(layout: PosterLayout): { x: number; y: number; width: number; height: number } {
+  const top = layout.photo.y + layout.photo.height;
+  return { x: layout.photo.x, y: top, width: layout.photo.width, height: layout.height - top };
+}
+
+/**
+ * The caption, centred in the bottom band.
+ *
+ * The size is *measured down* until the line fits rather than set and hoped for. These
+ * lines vary from 18 to 40 characters, and a fixed size that suits the shortest one runs
+ * off the edge of the longest — which does not just look bad, it breaks the illusion of
+ * a physical object. The name is set bold and the rest regular, so it reads as a person
+ * saying something rather than as a watermark.
+ */
+export function drawCaption(
+  ctx: CanvasRenderingContext2D,
+  layout: PosterLayout,
+  caption: Caption,
+): void {
+  const band = captionBand(layout);
+  const text = captionText(caption);
+  const rest = text.slice(CAPTION_NAME.length);
+
+  // Never wider than the photo, with real breathing room at both ends.
+  const maxWidth = band.width * 0.88;
+  let size = Math.round(band.height * 0.3);
+  const minSize = Math.round(band.height * 0.12);
+
+  const measure = (px: number): number => {
+    ctx.font = `700 ${px}px "Instrument Sans", system-ui, sans-serif`;
+    const nameWidth = ctx.measureText(CAPTION_NAME).width;
+    ctx.font = `${px}px "Instrument Sans", system-ui, sans-serif`;
+    return nameWidth + ctx.measureText(rest).width;
+  };
+
+  while (size > minSize && measure(size) > maxWidth) size -= 1;
+
+  const total = measure(size);
+  const startX = band.x + (band.width - total) / 2;
+  const y = band.y + band.height * 0.46;
 
   ctx.save();
-  ctx.translate(photo.x, bandTop + bandHeight * 0.5);
-  ctx.rotate(-0.015);
   ctx.textBaseline = 'middle';
 
-  // 'You' is the subject of the picture, so it carries the weight; the credit follows
-  // lighter and smaller, the way a signature sits under a drawing rather than over it.
-  ctx.fillStyle = 'rgba(32, 27, 20, 0.92)';
   ctx.font = `700 ${size}px "Instrument Sans", system-ui, sans-serif`;
-  ctx.fillText(SIGNATURE_LEAD, 0, 0);
-  const leadWidth = ctx.measureText(SIGNATURE_LEAD).width;
+  ctx.fillStyle = 'rgba(28, 24, 18, 0.92)';
+  ctx.fillText(CAPTION_NAME, startX, y);
+  const nameWidth = ctx.measureText(CAPTION_NAME).width;
 
-  ctx.fillStyle = 'rgba(58, 50, 38, 0.75)';
-  ctx.font = `italic ${Math.round(size * 0.86)}px "Instrument Serif", Georgia, serif`;
-  ctx.fillText(SIGNATURE_REST, leadWidth, 0);
+  ctx.font = `${size}px "Instrument Sans", system-ui, sans-serif`;
+  ctx.fillStyle = 'rgba(58, 50, 38, 0.82)';
+  ctx.fillText(rest, startX + nameWidth, y);
   ctx.restore();
 
-  // A faint pencil rule under the signature, as if the stock were lightly scored.
+  // The credit, small and quiet, under the line it belongs to.
   ctx.save();
-  ctx.globalAlpha = 0.18;
-  ctx.strokeStyle = '#4a4034';
-  ctx.lineWidth = Math.max(1, width * 0.001);
-  ctx.beginPath();
-  ctx.moveTo(photo.x, bandTop + bandHeight * 0.78);
-  ctx.lineTo(photo.x + photo.width * 0.42, bandTop + bandHeight * 0.78);
-  ctx.stroke();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `italic ${Math.round(size * 0.52)}px "Instrument Serif", Georgia, serif`;
+  ctx.fillStyle = 'rgba(80, 70, 55, 0.6)';
+  ctx.fillText('siva serafino · 2026', band.x + band.width / 2, band.y + band.height * 0.78);
   ctx.restore();
 }

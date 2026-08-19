@@ -1,4 +1,3 @@
-import { mulberry32 } from '@/lib/rng';
 import type { PosterLayout } from './poster';
 
 /**
@@ -60,62 +59,74 @@ export interface StickerPlacement {
  * lands on the stock and part hangs into the transparent margin.
  */
 const ANCHORS = [
-  { x: 0.08, y: 0.06, rotation: -0.22 }, // top-left corner
-  { x: 0.92, y: 0.08, rotation: 0.18 }, // top-right corner
-  { x: 0.9, y: 0.9, rotation: -0.12 }, // bottom-right, over the wide band
-  { x: 0.12, y: 0.93, rotation: 0.14 }, // bottom-left, over the wide band
-  { x: 0.5, y: 0.03, rotation: 0.05 }, // straddling the top edge
+  { x: 0.09, y: 0.07, rotation: -0.22 }, // top-left corner
+  { x: 0.91, y: 0.09, rotation: 0.18 }, // top-right corner
+  { x: 0.5, y: 0.035, rotation: 0.05 }, // straddling the top edge
+  { x: 0.06, y: 0.42, rotation: -0.3 }, // left edge, mid-height
+  { x: 0.94, y: 0.5, rotation: 0.26 }, // right edge, mid-height
 ];
 
 /**
- * One or two, never more. Three starts to look like a sticker sheet rather than a
- * decision, and the photograph stops being the subject.
+ * Exactly one sticker, placed where it cannot touch the caption.
+ *
+ * One, because two competed with each other and with the words; the print is a picture
+ * with a message on it, not a scrapbook page. The caption band is passed in and treated
+ * as forbidden rather than merely avoided — a lovely line half-covered by lettering is
+ * worse than no lettering at all.
  */
-export async function pickStickers(
+export async function pickSticker(
   layout: PosterLayout,
-  seed: number,
-): Promise<StickerPlacement[]> {
-  const random = mulberry32(seed);
-  const count = random() < 0.45 ? 1 : 2;
-
+  forbidden: { x: number; y: number; width: number; height: number },
+  random: () => number,
+): Promise<StickerPlacement | null> {
   const names = [...STICKERS];
   const anchors = [...ANCHORS];
-  const placements: StickerPlacement[] = [];
 
-  for (let i = 0; i < count; i++) {
-    const name = names.splice(Math.floor(random() * names.length), 1)[0];
+  // Try anchors until one clears the caption; the list is ordered so this almost always
+  // succeeds first time, and giving up is better than printing over the words.
+  while (anchors.length > 0) {
     const anchor = anchors.splice(Math.floor(random() * anchors.length), 1)[0];
-    if (!name || !anchor) break;
+    const name = names[Math.floor(random() * names.length)];
+    if (!anchor || !name) break;
 
     const image = await loadSticker(name);
     if (!image) continue;
 
-    // Sized against the poster, so a sticker is the same visual weight at any capture
-    // resolution. The natural aspect is preserved — these are lettering, and stretching
-    // lettering is immediately obvious.
-    const width = layout.width * (0.3 + random() * 0.16);
+    // Sized against the poster, so a sticker carries the same visual weight at any
+    // capture resolution. Aspect preserved — this is lettering, and stretched lettering
+    // is immediately obvious.
+    const width = layout.width * (0.26 + random() * 0.12);
     const aspect = image.naturalHeight / image.naturalWidth || 0.56;
     const height = width * aspect;
+    const x = layout.width * anchor.x - width / 2;
+    const y = layout.height * anchor.y - height / 2;
 
-    placements.push({
+    const clearsCaption =
+      y + height < forbidden.y + forbidden.height * 0.1 ||
+      x + width < forbidden.x ||
+      x > forbidden.x + forbidden.width;
+
+    if (!clearsCaption) continue;
+
+    return {
       image,
-      x: layout.width * anchor.x - width / 2,
-      y: layout.height * anchor.y - height / 2,
+      x,
+      y,
       width,
       height,
       rotation: anchor.rotation + (random() - 0.5) * 0.1,
-    });
+    };
   }
 
-  return placements;
+  return null;
 }
 
-export function drawStickers(
+export function drawSticker(
   ctx: CanvasRenderingContext2D,
-  placements: StickerPlacement[],
+  sticker: StickerPlacement,
   offset: { x: number; y: number },
 ): void {
-  for (const sticker of placements) {
+  {
     ctx.save();
     const cx = offset.x + sticker.x + sticker.width / 2;
     const cy = offset.y + sticker.y + sticker.height / 2;
