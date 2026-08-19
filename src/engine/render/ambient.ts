@@ -14,6 +14,16 @@ import type { ArtMode } from '@/content/art-modes';
 
 const BLEND = 0.04;
 
+/**
+ * How far the sampled room colour is pushed toward the look's palette. High on purpose:
+ * at 0.62 all four looks produced near-identical greys from the same room, which is a
+ * backdrop that technically reacts and visibly does nothing.
+ */
+const PALETTE_WEIGHT = 0.88;
+
+/** How much of the accent colour reaches each corner: dark, bright, mid, brightest. */
+const CORNER_MIX = [0.2, 0.9, 0.45, 1];
+
 export interface AmbientField {
   update(samples: string[], mode: ArtMode, dtMs: number): void;
   draw(ctx: CanvasRenderingContext2D, width: number, height: number, time: number): void;
@@ -54,6 +64,7 @@ function css(color: Rgb, alpha: number): string {
 
 export function createAmbientField(): AmbientField {
   // Four corners, matching the quadrants sampleAmbient returns.
+  let lastMode = '';
   let current: Rgb[] = [
     { r: 20, g: 20, b: 28 },
     { r: 20, g: 20, b: 28 },
@@ -64,13 +75,21 @@ export function createAmbientField(): AmbientField {
   return {
     update(samples, mode, dtMs) {
       const palette = mode.ambient.map(hexToRgb);
-      const rate = Math.min(1, BLEND * (dtMs / 16.67));
+      // A deliberate look change should land quickly; drift from the room should not.
+      const switched = mode.id !== lastMode;
+      lastMode = mode.id;
+      const rate = switched ? 0.6 : Math.min(1, BLEND * (dtMs / 16.67));
 
       current = current.map((existing, i) => {
         const sampled = samples[i] ? parseRgb(samples[i]) : existing;
-        // Push the sampled colour toward the look's palette, so a beige room still
-        // reads as "neon" or "dream" rather than washing the whole design out.
-        const themed = mix(sampled, palette[i % palette.length]!, 0.62);
+        // Each corner takes a different blend of the look's two colours rather than one
+        // or the other. Alternating them left two looks whose dark colours happened to be
+        // similar looking identical from most of the page — the accent never reached
+        // three of the four corners.
+        const target = mix(palette[0]!, palette[1]!, CORNER_MIX[i] ?? 0.5);
+        // Push the sampled room colour toward that, so a beige room still reads as the
+        // look rather than washing the whole design out.
+        const themed = mix(sampled, target, PALETTE_WEIGHT);
         return mix(existing, themed, rate);
       });
     },
@@ -98,8 +117,8 @@ export function createAmbientField(): AmbientField {
           y * height,
           radius,
         );
-        gradient.addColorStop(0, css(color, 0.5));
-        gradient.addColorStop(0.55, css(color, 0.14));
+        gradient.addColorStop(0, css(color, 0.85));
+        gradient.addColorStop(0.55, css(color, 0.3));
         gradient.addColorStop(1, css(color, 0));
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, width, height);

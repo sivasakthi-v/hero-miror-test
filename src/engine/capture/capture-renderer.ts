@@ -30,6 +30,8 @@ export interface CaptureOptions {
   /** The aspect the visitor is actually looking at, so the print matches the screen. */
   aspect: number;
   reducedMotion: boolean;
+  /** Same seed as the live view, so the print carries the same words. */
+  sessionSeed: number;
 }
 
 export interface CapturedPortrait {
@@ -85,6 +87,7 @@ export function renderPortrait(options: CaptureOptions): CapturedPortrait {
       reducedMotion: options.reducedMotion,
       tier: 'high',
       scene: options.scene,
+      sessionSeed: options.sessionSeed,
       debug: false,
     });
 

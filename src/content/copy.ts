@@ -6,7 +6,9 @@
  * Text is the blueprint's §81 copy system, verbatim.
  */
 
-export const SIGNATURE = 'You by Siva Serafino · 2026' as const;
+export const SIGNATURE_LEAD = 'You' as const;
+export const SIGNATURE_REST = ' by Siva Serafino · 2026' as const;
+export const SIGNATURE = `${SIGNATURE_LEAD}${SIGNATURE_REST}` as const;
 export const CAPTURE_FILENAME = 'you-by-siva-serafino.jpg' as const;
 
 export const intro = {
@@ -43,9 +45,12 @@ export const capture = {
   prompt: 'make it yours.',
   action: 'CAPTURE',
   actionLabel: 'Capture portrait',
-  done: 'one little portrait, yours to keep.',
-  save: 'SAVE PORTRAIT',
+  // Short on purpose. The picture is the message; anything longer competes with it.
+  done: 'look at that.',
+  thanks: 'Yours to keep — thanks for stopping by.',
+  save: 'DOWNLOAD',
   share: 'SHARE',
+  again: 'TAKE ANOTHER',
   failed: 'that one got away. try again?',
 } as const;
 

@@ -1,0 +1,41 @@
+/**
+ * Self-hosted rather than linked from Google, for the same reason the vision model is:
+ * the hero promises no third-party requests, and a webfont request would tell someone
+ * else's server who opened the page and when. Fetched by scripts/fetch-fonts.mjs.
+ *
+ * Instrument Serif carries the voice — the lines the page speaks in. Instrument Sans
+ * carries everything functional. Two families, one job each.
+ */
+
+@font-face {
+  font-family: 'Instrument Serif';
+  src: url('/fonts/instrument-serif-normal-1.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Instrument Serif';
+  src: url('/fonts/instrument-serif-italic-0.woff2') format('woff2');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Instrument Sans';
+  src: url('/fonts/instrument-sans-normal-1.woff2') format('woff2');
+  /* Variable across the whole range, so one file covers regular through bold. */
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Instrument Sans';
+  src: url('/fonts/instrument-sans-italic-0.woff2') format('woff2');
+  font-weight: 400 700;
+  font-style: italic;
+  font-display: swap;
+}

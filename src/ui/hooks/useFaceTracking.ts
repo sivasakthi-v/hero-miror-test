@@ -6,7 +6,6 @@ import { createParticleField, type ParticleField } from '@/engine/render/particl
 import { createSceneSampler } from '@/engine/render/exposure';
 import { createReactionState, updateReactions } from '@/engine/render/reactions';
 import { createViewport } from '@/engine/transform/viewport';
-import { nextExpressionState, type ExpressionState } from '@/engine/vision/expression';
 import { createFaceTracker, type FaceTracker } from '@/engine/vision/landmarker-client';
 import type { CaptureSource } from './useCapture';
 
@@ -32,10 +31,6 @@ export interface UseFaceTracking {
 }
 
 export interface Telemetry {
-  expression: ExpressionState;
-  smile: number;
-  sadness: number;
-  surprise: number;
   particles: number;
   gain: number;
   luma: number;
@@ -83,7 +78,6 @@ export function useFaceTracking(callbacks: FaceTrackingCallbacks): UseFaceTracki
   const ambientFieldRef = useRef(createAmbientField());
   const sceneRef = useRef(createSceneSampler());
   const telemetryRef = useRef<Telemetry>({
-    expression: 'neutral', smile: 0, sadness: 0, surprise: 0,
     particles: 0, gain: 1, luma: 0.5, tier: 'high',
   });
   const sourceRef = useRef<CaptureSource>({
@@ -92,9 +86,11 @@ export function useFaceTracking(callbacks: FaceTrackingCallbacks): UseFaceTracki
     mode: ART_MODES.lens,
     scene: { gain: 1, luma: 0.5, clipped: 0, quadrants: [] },
     aspect: 1.5,
+    sessionSeed: 0,
   });
   const reactionRef = useRef(createReactionState(0));
-  const expressionRef = useRef<ExpressionState>('neutral');
+  // Stable for the visit, so graffiti wording does not reshuffle on every frame.
+  const sessionSeedRef = useRef(Math.floor(Math.random() * 1e9));
 
   const renderLoop = useCallback((now: number) => {
     frameRef.current = requestAnimationFrame(renderLoop);
@@ -149,19 +145,8 @@ export function useFaceTracking(callbacks: FaceTrackingCallbacks): UseFaceTracki
       mirrored: true,
     });
 
-    if (face.present) {
-      expressionRef.current = nextExpressionState(expressionRef.current, {
-        smile: face.expression.smile,
-        sadness: face.expression.sadness,
-        surprise: face.expression.surprise,
-      });
-    } else {
-      expressionRef.current = 'neutral';
-    }
-
     updateReactions({
       state: reactionRef.current,
-      expression: expressionRef.current,
       mode,
       field: particlesRef.current,
       viewport,
@@ -185,6 +170,7 @@ export function useFaceTracking(callbacks: FaceTrackingCallbacks): UseFaceTracki
       reducedMotion,
       tier: tierRef.current,
       scene,
+      sessionSeed: sessionSeedRef.current,
       debug: handlers.current.debug,
     });
 
@@ -213,13 +199,10 @@ export function useFaceTracking(callbacks: FaceTrackingCallbacks): UseFaceTracki
       mode,
       scene,
       aspect: rect.width / rect.height,
+      sessionSeed: sessionSeedRef.current,
     };
 
     telemetryRef.current = {
-      expression: expressionRef.current,
-      smile: face.expression.smile,
-      sadness: face.expression.sadness,
-      surprise: face.expression.surprise,
       particles: particlesRef.current.liveCount,
       gain: scene.gain,
       luma: scene.luma,

@@ -1,4 +1,4 @@
-import { SIGNATURE } from '@/content/copy';
+import { SIGNATURE_LEAD, SIGNATURE_REST } from '@/content/copy';
 
 /**
  * The polaroid the visitor keeps.
@@ -76,15 +76,23 @@ export function drawSignature(ctx: CanvasRenderingContext2D, layout: PosterLayou
   const { photo, height, width } = layout;
   const bandTop = photo.y + photo.height;
   const bandHeight = height - bandTop;
-  const size = Math.round(bandHeight * 0.28);
+  const size = Math.round(bandHeight * 0.2);
 
   ctx.save();
-  ctx.translate(photo.x, bandTop + bandHeight * 0.58);
-  ctx.rotate(-0.018);
-  ctx.fillStyle = 'rgba(42, 36, 28, 0.86)';
-  ctx.font = `italic ${size}px "Segoe Script", "Bradley Hand", "Snell Roundhand", Georgia, serif`;
+  ctx.translate(photo.x, bandTop + bandHeight * 0.5);
+  ctx.rotate(-0.015);
   ctx.textBaseline = 'middle';
-  ctx.fillText(SIGNATURE, 0, 0);
+
+  // 'You' is the subject of the picture, so it carries the weight; the credit follows
+  // lighter and smaller, the way a signature sits under a drawing rather than over it.
+  ctx.fillStyle = 'rgba(32, 27, 20, 0.92)';
+  ctx.font = `700 ${size}px "Instrument Sans", system-ui, sans-serif`;
+  ctx.fillText(SIGNATURE_LEAD, 0, 0);
+  const leadWidth = ctx.measureText(SIGNATURE_LEAD).width;
+
+  ctx.fillStyle = 'rgba(58, 50, 38, 0.75)';
+  ctx.font = `italic ${Math.round(size * 0.86)}px "Instrument Serif", Georgia, serif`;
+  ctx.fillText(SIGNATURE_REST, leadWidth, 0);
   ctx.restore();
 
   // A faint pencil rule under the signature, as if the stock were lightly scored.

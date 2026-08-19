@@ -232,14 +232,6 @@ function DebugPanel({
       <dd>
         {signals ? `gain ${signals.gain.toFixed(2)} · luma ${signals.luma.toFixed(2)}` : '—'}
       </dd>
-      <dt>expression</dt>
-      <dd>{signals?.expression ?? '—'}</dd>
-      <dt>smile</dt>
-      <dd>{signals ? signals.smile.toFixed(3) : '—'}</dd>
-      <dt>sadness</dt>
-      <dd>{signals ? signals.sadness.toFixed(3) : '—'}</dd>
-      <dt>surprise</dt>
-      <dd>{signals ? signals.surprise.toFixed(3) : '—'}</dd>
       <dt>particles</dt>
       <dd>{signals?.particles ?? '—'}</dd>
     </dl>

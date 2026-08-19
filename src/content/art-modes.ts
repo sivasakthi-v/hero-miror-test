@@ -42,6 +42,10 @@ export interface LookPasses {
   film: number;
   vignette: number;
   grain: number;
+  /** Ordered-dither grid. Subtle everywhere: it is texture, not a posterise. */
+  dither: number;
+  /** Character-grid texture. Same idea — process you feel rather than read. */
+  ascii: number;
   /**
    * How much of the clean, unprocessed face is composited back at the end. The whole
    * point of the effects is that the person stays clear inside them.
@@ -79,6 +83,8 @@ export const ART_MODES: Record<ArtModeId, ArtMode> = {
       film: 0,
       vignette: 0.42,
       grain: 0.035,
+      dither: 0.05,
+      ascii: 0.035,
       faceClarity: 0.25,
     },
     ambient: ['#161a22', '#7d8ba3'],
@@ -103,9 +109,13 @@ export const ART_MODES: Record<ArtModeId, ArtMode> = {
       film: 0,
       vignette: 0.6,
       grain: 0.07,
+      dither: 0.09,
+      ascii: 0.06,
       faceClarity: 0.5,
     },
-    ambient: ['#04202f', '#ff8a4c'],
+    // Hotter and more electric than the grade, so it does not collide with vintage's
+    // amber: the two warm looks were near-identical in the backdrop.
+    ambient: ['#02202f', '#ff5f9e'],
     accent: 'rgba(255, 154, 92, 0.95)',
     glow: 'rgba(255, 130, 70, 0.32)',
   },
@@ -128,9 +138,11 @@ export const ART_MODES: Record<ArtModeId, ArtMode> = {
       film: 0.9,
       vignette: 0.68,
       grain: 0.16,
+      dither: 0.11,
+      ascii: 0.07,
       faceClarity: 0.62,
     },
-    ambient: ['#2a1c10', '#d9a05a'],
+    ambient: ['#1d1206', '#b8822f'],
     accent: 'rgba(255, 214, 160, 0.95)',
     glow: 'rgba(220, 160, 90, 0.3)',
   },
@@ -152,6 +164,8 @@ export const ART_MODES: Record<ArtModeId, ArtMode> = {
       film: 0,
       vignette: 0.34,
       grain: 0.04,
+      dither: 0.04,
+      ascii: 0.03,
       faceClarity: 0.45,
     },
     ambient: ['#1a1730', '#c9b6ff'],

@@ -1,42 +1,63 @@
 import type { ArtMode } from '@/content/art-modes';
 import type { Viewport } from '@/engine/transform/viewport';
-import type { ExpressionState } from '@/engine/vision/expression';
-import type { ParticleField } from './particles';
+import type { ParticleField, ParticleKind } from './particles';
 
 /**
- * Decides *when* effects fire. The particle field knows how to draw; this knows restraint.
+ * The effect loop.
  *
- * Restraint is the whole job. An effect that fires continuously stops being a reaction
- * and becomes wallpaper — the visitor learns it means nothing. So: a burst on entering a
- * state, a slow trickle while it holds, a cooldown before it can burst again, and hearts
- * on a long random timer so they feel like a gift rather than a feature.
+ * Effects used to be driven by facial expression. That is gone: reading emotion from
+ * blendshapes was unreliable enough that most visitors never saw a single reaction, and
+ * an effect nobody triggers may as well not exist. A timed cycle fires reliably for
+ * everyone, and the visitor still gets a picture that keeps changing while they watch.
+ *
+ * The design constraint is unchanged: restraint. One effect at a time, with quiet gaps
+ * between them, so each arrival is noticed instead of becoming wallpaper.
  */
 
+interface Beat {
+  kind: ParticleKind;
+  /** How many arrive at the start of the beat. */
+  burst: number;
+  /** Chance per 16ms of another one during the beat. Trickle, not a firehose. */
+  trickle: number;
+  /** How long the beat lasts. */
+  durationMs: number;
+  /** Colour override; falls back to the look's accent. */
+  color?: string;
+  /** Lights the frame sheen when the beat opens. */
+  shine?: boolean;
+}
+
+/**
+ * Ordered rather than random: a sequence has a rhythm a visitor can feel, where random
+ * picks tend to clump and leave long dead stretches.
+ */
+const LOOP: Beat[] = [
+  { kind: 'glitter', burst: 22, trickle: 0.02, durationMs: 4200, shine: true },
+  { kind: 'heart', burst: 4, trickle: 0.008, durationMs: 5200, color: 'rgba(255, 138, 170, 0.95)' },
+  { kind: 'confetti', burst: 30, trickle: 0.01, durationMs: 5000 },
+  { kind: 'rain', burst: 26, trickle: 0.05, durationMs: 5600, color: 'rgba(186, 210, 255, 0.8)' },
+  { kind: 'glitter', burst: 16, trickle: 0.015, durationMs: 4000, shine: true },
+];
+
+/** Silence between beats. Without it the frame is never allowed to just be a picture. */
+const GAP_MS = 2600;
+
 export interface ReactionState {
-  previous: ExpressionState;
-  /** Timestamp of the last burst per state, for cooldowns. */
-  lastBurst: Partial<Record<ExpressionState, number>>;
-  nextHeartAt: number;
+  index: number;
+  /** When the current beat started. */
+  beatStartedAt: number;
+  inGap: boolean;
   /** 0..1, drives the frame's specular sweep. */
   shine: number;
 }
 
 export function createReactionState(now: number): ReactionState {
-  return {
-    previous: 'neutral',
-    lastBurst: {},
-    nextHeartAt: now + 6000 + Math.random() * 8000,
-    shine: 0,
-  };
+  return { index: 0, beatStartedAt: now, inGap: true, shine: 0 };
 }
-
-const BURST_COOLDOWN_MS = 2600;
-const HEART_MIN_GAP_MS = 12000;
-const HEART_JITTER_MS = 16000;
 
 export interface ReactionOptions {
   state: ReactionState;
-  expression: ExpressionState;
   mode: ArtMode;
   field: ParticleField;
   viewport: Viewport;
@@ -46,51 +67,36 @@ export interface ReactionOptions {
 }
 
 export function updateReactions(options: ReactionOptions): void {
-  const { state, expression, mode, field, viewport, now, dtMs } = options;
+  const { state, mode, field, viewport, now, dtMs, reducedMotion } = options;
 
-  // The frame shine decays on its own; a smile re-lights it.
+  // The sheen decays on its own; the start of a glitter beat re-lights it.
   state.shine = Math.max(0, state.shine - dtMs / 900);
 
-  const entered = expression !== state.previous;
-  const cooled = (now - (state.lastBurst[expression] ?? -Infinity)) > BURST_COOLDOWN_MS;
+  const beat = LOOP[state.index % LOOP.length]!;
+  const elapsed = now - state.beatStartedAt;
 
-  if (entered && cooled) {
-    state.lastBurst[expression] = now;
-
-    switch (expression) {
-      case 'smiling':
-        // Quick shine plus glitter — the reward for smiling, and the reason to do it again.
-        state.shine = 1;
-        field.emit('glitter', options.reducedMotion ? 8 : 26, viewport, mode.accent);
-        break;
-      case 'sad':
-        field.emit('rain', options.reducedMotion ? 10 : 40, viewport, 'rgba(180, 205, 255, 0.8)');
-        break;
-      case 'surprised':
-        field.emit('confetti', options.reducedMotion ? 10 : 40, viewport, mode.accent);
-        break;
-      case 'neutral':
-        break;
+  if (state.inGap) {
+    if (elapsed >= GAP_MS) {
+      state.inGap = false;
+      state.beatStartedAt = now;
+      if (beat.shine) state.shine = 1;
+      field.emit(
+        beat.kind,
+        reducedMotion ? Math.ceil(beat.burst / 3) : beat.burst,
+        viewport,
+        beat.color ?? mode.accent,
+      );
+    }
+  } else {
+    if (!reducedMotion && Math.random() < beat.trickle * (dtMs / 16)) {
+      field.emit(beat.kind, 1, viewport, beat.color ?? mode.accent);
+    }
+    if (elapsed >= beat.durationMs) {
+      state.inGap = true;
+      state.beatStartedAt = now;
+      state.index = (state.index + 1) % LOOP.length;
     }
   }
 
-  // A trickle while the state holds, so it does not die the instant the burst ends.
-  if (!options.reducedMotion) {
-    if (expression === 'smiling' && Math.random() < dtMs / 700) {
-      field.emit('glitter', 1, viewport, mode.accent);
-    }
-    if (expression === 'sad' && Math.random() < dtMs / 90) {
-      field.emit('rain', 1, viewport, 'rgba(180, 205, 255, 0.75)');
-    }
-  }
-
-  // Hearts arrive on their own schedule, unrelated to anything the visitor did. That is
-  // what makes them feel like a gift rather than a mechanic to be gamed.
-  if (now >= state.nextHeartAt) {
-    if (!options.reducedMotion) field.emit('heart', 3, viewport, mode.accent);
-    state.nextHeartAt = now + HEART_MIN_GAP_MS + Math.random() * HEART_JITTER_MS;
-  }
-
-  state.previous = expression;
   field.update(dtMs, viewport);
 }

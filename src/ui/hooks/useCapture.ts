@@ -20,6 +20,7 @@ export interface CaptureSource {
   mode: ArtMode;
   scene: SceneAnalysis;
   aspect: number;
+  sessionSeed: number;
 }
 
 export interface UseCapture {
@@ -74,6 +75,7 @@ export function useCapture(
             mode: source.mode,
             scene: source.scene,
             aspect: source.aspect,
+            sessionSeed: source.sessionSeed,
             reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
           });
 
