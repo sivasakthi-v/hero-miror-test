@@ -1,0 +1,79 @@
+/**
+ * One button system, three roles.
+ *
+ * Before this, every surface invented its own: the fallback screens used square outlined
+ * boxes, the keepsake used a filled one, the CTA used a pill. Three visual languages for
+ * the same act of pressing something, which quietly tells a visitor the parts were built
+ * at different times — which they were.
+ *
+ *   .btn--primary   the one thing to do here. One per view, never two.
+ *   .btn--secondary a real alternative, equal in weight, quieter in colour.
+ *   .btn--ghost     an escape hatch. Present, not competing.
+ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+
+  padding: var(--space-3) var(--space-6);
+  border: 1px solid transparent;
+  border-radius: 999px;
+
+  font-family: var(--font-text);
+  font-size: var(--step--1);
+  font-weight: 500;
+  letter-spacing: var(--tracking-wider);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.btn--primary {
+  background: var(--paper-100);
+  border-color: var(--paper-100);
+  color: var(--ink-900);
+  font-weight: 600;
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: #fff;
+  border-color: #fff;
+}
+
+.btn--secondary {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(244, 240, 232, 0.35);
+  color: var(--text);
+}
+
+.btn--secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--paper-100);
+}
+
+.btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-muted);
+}
+
+.btn--ghost:hover:not(:disabled) {
+  color: var(--text);
+}

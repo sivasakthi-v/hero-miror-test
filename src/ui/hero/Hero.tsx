@@ -106,7 +106,7 @@ export function Hero() {
               {!cameraOn && !showFallback && (
                 <div className="hero__begin">
                   <button
-                    className="hero__action"
+                    className="btn btn--primary hero__begin-cta"
                     type="button"
                     onClick={begin}
                     disabled={state === 'requesting'}
@@ -171,11 +171,11 @@ function FallbackCopy({ reason, onRetry }: { reason: string | null; onRetry: () 
         {copy.body.map((line, i) => (line === '' ? <br key={i} /> : <p key={i}>{line}</p>))}
       </div>
       <div className="hero__actions">
-        <a className="hero__action" href="#work">
+        <a className="btn btn--secondary" href="#work">
           {copy.action}
         </a>
         {retryLabel && (
-          <button className="hero__action hero__action--quiet" type="button" onClick={onRetry}>
+          <button className="btn btn--ghost" type="button" onClick={onRetry}>
             {retryLabel}
           </button>
         )}

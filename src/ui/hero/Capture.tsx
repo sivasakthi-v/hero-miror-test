@@ -74,17 +74,17 @@ export function CapturePreview({
         </div>
 
         <div className="keepsake__actions">
-          <button className="hero__action hero__action--solid" type="button" onClick={onSave}>
+          <button className="btn btn--primary" type="button" onClick={onSave}>
             {copy.save}
           </button>
           {shareable && (
-            <button className="hero__action" type="button" onClick={onShare}>
+            <button className="btn btn--secondary" type="button" onClick={onShare}>
               {copy.share}
             </button>
           )}
           <button
             ref={closeRef}
-            className="hero__action hero__action--quiet"
+            className="btn btn--ghost"
             type="button"
             onClick={onDismiss}
           >

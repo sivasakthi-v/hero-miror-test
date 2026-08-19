@@ -38,22 +38,7 @@
   color: var(--text-muted);
 }
 
-.hero__action {
-  font-family: var(--font-text);
-  margin-top: var(--space-6);
-  padding: var(--space-3) var(--space-6);
-  border: 1px solid var(--line);
-  color: var(--text);
-  font-size: var(--step--1);
-  letter-spacing: var(--tracking-wider);
-  transition: border-color var(--dur-fast) var(--ease-out),
-    background-color var(--dur-fast) var(--ease-out);
-}
 
-.hero__action:hover {
-  border-color: var(--electric-400);
-  background-color: var(--ink-700);
-}
 
 .hero__privacy {
   margin-top: var(--space-4);
@@ -68,6 +53,7 @@
 }
 
 .hero__actions {
+  margin-top: var(--space-6);
   justify-content: center;
   display: flex;
   flex-wrap: wrap;
@@ -75,15 +61,7 @@
   align-items: center;
 }
 
-.hero__action--quiet {
-  border-color: transparent;
-  color: var(--text-muted);
-}
 
-a.hero__action {
-  text-decoration: none;
-  display: inline-block;
-}
 
 /* The inner aperture is strict; the frame around it carries the character. Width comes
    from the frame wrapper now, so the moulding's padding does not widen the picture. */
@@ -341,9 +319,7 @@ a.hero__action {
   justify-content: center;
 }
 
-.develop__actions .hero__action {
-  margin-top: 0;
-}
+
 
 @media (prefers-reduced-motion: reduce) {
   .develop__print {
@@ -352,18 +328,7 @@ a.hero__action {
 }
 
 
-/* A filled variant for the one action we actually want people to take. */
-.hero__action--solid {
-  background: var(--paper-100);
-  color: var(--ink-900);
-  border-color: var(--paper-100);
-  font-weight: 600;
-}
 
-.hero__action--solid:hover {
-  background: #fff;
-  border-color: #fff;
-}
 
 /* ---- the keepsake overlay ------------------------------------------------------ */
 
@@ -389,7 +354,7 @@ a.hero__action {
   display: grid;
   justify-items: center;
   gap: var(--space-4);
-  max-width: min(92vw, 26rem);
+  max-width: min(94vw, 38rem);
   animation: keepsake-rise var(--dur-slow) var(--ease-out) both;
 }
 
@@ -397,10 +362,12 @@ a.hero__action {
   display: block;
   width: 100%;
   height: auto;
-  max-height: 62vh;
+  max-height: 68vh;
   object-fit: contain;
   border-radius: 3px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65), 0 4px 10px rgba(0, 0, 0, 0.5);
+  /* Tight and close. The wide soft shadow it replaces spread far enough to read as a
+     grey panel behind the print rather than as depth under it. */
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
   /* Polaroids develop. Watching it arrive is most of why keeping one feels good. */
   animation: develop 2s var(--ease-out) both;
 }
@@ -429,9 +396,7 @@ a.hero__action {
   justify-content: center;
 }
 
-.keepsake__actions .hero__action {
-  margin-top: 0;
-}
+
 
 @keyframes keepsake-in {
   from { opacity: 0; }
@@ -469,7 +434,7 @@ a.hero__action {
   pointer-events: none;
 }
 
-.hero__begin .hero__action {
+.hero__begin .hero__begin-cta {
   margin-top: 0;
   pointer-events: auto;
   background: rgba(8, 9, 10, 0.55);
@@ -477,12 +442,12 @@ a.hero__action {
   border-color: rgba(244, 240, 232, 0.5);
 }
 
-.hero__begin .hero__action:hover:not(:disabled) {
+.hero__begin .hero__begin-cta:hover:not(:disabled) {
   background: rgba(8, 9, 10, 0.75);
   border-color: var(--paper-100);
 }
 
-.hero__begin .hero__action:disabled {
+.hero__begin .hero__begin-cta:disabled {
   opacity: 0.6;
   cursor: default;
 }
@@ -522,7 +487,7 @@ a.hero__action {
 
 /* ---- the call to action ---------------------------------------------------------- */
 
-.hero__begin .hero__action {
+.hero__begin .hero__begin-cta {
   position: relative;
   isolation: isolate;
   overflow: hidden;
@@ -546,7 +511,7 @@ a.hero__action {
 
 /* The surge itself: light travelling across the face of the button, on its own slower
    clock than the halo so the two never sync into a single throb. */
-.hero__begin .hero__action::after {
+.hero__begin .hero__begin-cta::after {
   content: '';
   position: absolute;
   inset: -40%;
@@ -562,12 +527,12 @@ a.hero__action {
   animation: cta-sweep 3.4s var(--ease-inout) infinite;
 }
 
-.hero__begin .hero__action:hover:not(:disabled) {
+.hero__begin .hero__begin-cta:hover:not(:disabled) {
   background: #fff;
   transform: scale(1.03);
 }
 
-.hero__begin .hero__action:disabled {
+.hero__begin .hero__begin-cta:disabled {
   animation: none;
   background: rgba(8, 9, 10, 0.6);
   color: var(--text);
@@ -578,7 +543,7 @@ a.hero__action {
   cursor: default;
 }
 
-.hero__begin .hero__action:disabled::after {
+.hero__begin .hero__begin-cta:disabled::after {
   display: none;
 }
 
@@ -609,14 +574,14 @@ a.hero__action {
 /* Reduced motion keeps the button prominent and stops it moving: the halo holds at its
    mid point and the sweep is removed rather than paused mid-travel. */
 @media (prefers-reduced-motion: reduce) {
-  .hero__begin .hero__action {
+  .hero__begin .hero__begin-cta {
     animation: none;
     box-shadow:
       0 0 24px 6px rgba(95, 141, 255, 0.28),
       0 6px 24px rgba(0, 0, 0, 0.5);
   }
 
-  .hero__begin .hero__action::after {
+  .hero__begin .hero__begin-cta::after {
     display: none;
   }
 }

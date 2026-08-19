@@ -98,6 +98,14 @@ export const capture = {
   failed: 'that one got away. try again?',
 } as const;
 
+/** Placeholder shell for the real portfolio this hero will be dropped into. */
+export const nav = {
+  wordmark: 'Siva Sakthi',
+  links: ['Home', 'Works', 'About', 'Playground', 'Resume'],
+  cta: 'Get in touch',
+  email: 'sivavenkat372@gmail.com',
+} as const;
+
 export const identity = {
   name: 'SIVA SERAFINO',
   role: 'UI/UX DESIGNER',

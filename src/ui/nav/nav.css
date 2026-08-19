@@ -1,0 +1,99 @@
+/**
+ * Frosted glass, floating clear of the top edge.
+ *
+ * The blur is the whole effect, and it only works because the hero behind it moves and
+ * changes colour — frosted glass over a static dark page is just a grey bar. It sits
+ * above the ambient light layer so it picks that colour up as the look changes.
+ *
+ * `backdrop-filter` still needs the -webkit- prefix for Safari, and a slightly more
+ * opaque background is the fallback where it is unsupported: the bar must stay readable
+ * over a bright frame either way.
+ */
+
+.nav {
+  position: fixed;
+  top: var(--space-4);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  width: min(94vw, 72rem);
+  pointer-events: none;
+}
+
+.nav__bar {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-6);
+  border-radius: 999px;
+
+  background: rgba(16, 18, 22, 0.55);
+  -webkit-backdrop-filter: blur(18px) saturate(1.6);
+  backdrop-filter: blur(18px) saturate(1.6);
+
+  /* A hairline that is light on top and dark underneath reads as a pane with thickness
+     rather than a rectangle with a border. */
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 10px 30px rgba(0, 0, 0, 0.45);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .nav__bar {
+    background: rgba(16, 18, 22, 0.92);
+  }
+}
+
+.nav__logo {
+  font-family: var(--font-display);
+  font-size: var(--step-1);
+  line-height: 1;
+  color: var(--text);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.nav__links {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  margin: 0;
+  margin-inline-start: auto;
+  padding: 0;
+  list-style: none;
+}
+
+.nav__link {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: var(--step--1);
+  letter-spacing: 0.04em;
+  transition: color var(--dur-fast) var(--ease-out);
+  white-space: nowrap;
+}
+
+.nav__link:hover {
+  color: var(--text);
+}
+
+.nav__cta {
+  margin-top: 0;
+  flex-shrink: 0;
+}
+
+/*
+ * Below the breakpoint the links go and the wordmark plus the one action stay. A
+ * hamburger for five placeholder destinations would be a menu that opens onto nothing.
+ */
+@media (max-width: 767px) {
+  .nav__links {
+    display: none;
+  }
+
+  .nav__bar {
+    justify-content: space-between;
+    padding-left: var(--space-4);
+  }
+}
