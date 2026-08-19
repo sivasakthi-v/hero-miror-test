@@ -21,9 +21,7 @@ export function Hero() {
 
       <div className="hero__stage">
         <div className="hero__intro">
-          <p className="hero__title" aria-hidden={context.state !== 'boot'}>
-            {intro.title}
-          </p>
+          <p className="hero__title">{intro.title}</p>
           <div className="hero__body">
             {intro.body.map((line, i) =>
               line === '' ? <br key={i} /> : <p key={i}>{line}</p>,

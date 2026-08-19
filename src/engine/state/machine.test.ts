@@ -32,6 +32,7 @@ const ALL_EVENTS: HeroEvent[] = [
   { type: 'CAMERA_GRANTED' },
   { type: 'CAMERA_FAILED', reason: 'denied' },
   { type: 'CAMERA_FAILED', reason: 'no_device' },
+  { type: 'CAMERA_LOST' },
   { type: 'MODEL_READY' },
   { type: 'MODEL_FAILED' },
   { type: 'FACE_FOUND' },
@@ -65,6 +66,63 @@ describe('hero machine', () => {
     expect(state).toBe('loading_model');
     // no_face first: a granted camera does not imply a detected face.
     expect(transition(state, { type: 'MODEL_READY' })).toBe('no_face');
+  });
+
+  describe('late and stale camera events', () => {
+    // Regression: a superseded getUserMedia rejection used to eject a live visitor
+    // onto the denial screen while their camera was still running.
+    const liveish: HeroState[] = ['live', 'no_face', 'captured', 'capturing', 'vision_failed'];
+
+    it('ignores a CAMERA_FAILED that arrives after a camera is already working', () => {
+      for (const state of liveish) {
+        expect(transition(state, { type: 'CAMERA_FAILED', reason: 'denied' })).toBe(state);
+        expect(transition(state, { type: 'CAMERA_FAILED', reason: 'unknown' })).toBe(state);
+      }
+    });
+
+    it('ignores CAMERA_FAILED before a request was even made', () => {
+      expect(transition('idle', { type: 'CAMERA_FAILED', reason: 'denied' })).toBe('idle');
+      expect(transition('boot', { type: 'CAMERA_FAILED', reason: 'denied' })).toBe('boot');
+    });
+
+    it('survives the double-tapped BEGIN race end to end', () => {
+      // tap, tap, second request wins, first request's rejection lands late.
+      const events: HeroEvent[] = [
+        { type: 'SUPPORT_CHECKED', supported: true },
+        { type: 'BEGIN' },
+        { type: 'BEGIN' },
+        { type: 'CAMERA_GRANTED' },
+        { type: 'MODEL_READY' },
+        { type: 'FACE_FOUND' },
+        { type: 'CAMERA_FAILED', reason: 'denied' }, // the loser rejecting, far too late
+      ];
+      const end = events.reduce(reduce, INITIAL_CONTEXT);
+      expect(end.state).toBe('live');
+      expect(end.failure).toBeNull();
+    });
+
+    it('does record a stream that dies mid-session, with its own reason', () => {
+      for (const state of liveish.filter((s) => s !== 'capturing')) {
+        expect(transition(state, { type: 'CAMERA_LOST' })).toBe('camera_error');
+      }
+      const ctx = reduce({ state: 'live', failure: null }, { type: 'CAMERA_LOST' });
+      expect(ctx).toEqual({ state: 'camera_error', failure: 'lost' });
+    });
+
+    it('clears the failure reason once a camera is granted', () => {
+      const denied = [
+        { type: 'SUPPORT_CHECKED', supported: true },
+        { type: 'BEGIN' },
+        { type: 'CAMERA_FAILED', reason: 'denied' },
+      ] satisfies HeroEvent[];
+      const afterDenial = denied.reduce(reduce, INITIAL_CONTEXT);
+      expect(afterDenial).toEqual({ state: 'denied', failure: 'denied' });
+
+      const recovered = (
+        [{ type: 'RETRY' }, { type: 'CAMERA_GRANTED' }] satisfies HeroEvent[]
+      ).reduce(reduce, afterDenial);
+      expect(recovered).toEqual({ state: 'loading_model', failure: null });
+    });
   });
 
   it('separates a denial from a device/environment failure', () => {
@@ -111,10 +169,13 @@ describe('hero machine', () => {
   });
 
   it('gives every fallback state a recorded reason to render copy from', () => {
-    const ctx = reduce(
-      reduce(INITIAL_CONTEXT, { type: 'SUPPORT_CHECKED', supported: true }),
-      { type: 'CAMERA_FAILED', reason: 'in_app_browser' },
-    );
+    const ctx = (
+      [
+        { type: 'SUPPORT_CHECKED', supported: true },
+        { type: 'BEGIN' },
+        { type: 'CAMERA_FAILED', reason: 'in_app_browser' },
+      ] satisfies HeroEvent[]
+    ).reduce(reduce, INITIAL_CONTEXT);
     expect(isFallback(ctx.state)).toBe(true);
     expect(ctx.failure).toBe('in_app_browser');
   });

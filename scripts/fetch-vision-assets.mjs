@@ -1,14 +1,15 @@
 /**
  * Downloads the MediaPipe face model and copies the tasks-vision WASM into public/.
  *
- * These are ~7MB and are NOT committed (see .gitignore) — they are fetched here on a
+ * These are ~27MB and are NOT committed (see .gitignore) — they are fetched here on a
  * fresh checkout and in CI. They must be self-hosted rather than loaded from a CDN so
  * the hero makes zero third-party requests (docs/PLAN.md R5, R6).
  *
  * Usage: node scripts/fetch-vision-assets.mjs
  */
 import { createWriteStream } from 'node:fs';
-import { mkdir, cp, stat, readdir } from 'node:fs/promises';
+import { mkdir, cp, stat, readdir, rename, rm, readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
@@ -17,7 +18,18 @@ import path from 'node:path';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
+
+/**
+ * Integrity pin. We download over HTTPS from Google, but "we trusted TLS" is not an
+ * integrity story — this asset is executed by the vision runtime on every visitor's
+ * machine. A mismatch means either the upstream model changed (verify deliberately,
+ * then update these two constants) or something is wrong. Either way: stop.
+ */
+const MODEL_SHA256 = '64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff';
+const MODEL_BYTES = 3758596;
+
 const MODEL_DEST = path.join(root, 'public', 'models', 'face_landmarker.task');
+const MODEL_TMP = `${MODEL_DEST}.part`;
 const WASM_SRC = path.join(root, 'node_modules', '@mediapipe', 'tasks-vision', 'wasm');
 const WASM_DEST = path.join(root, 'public', 'wasm');
 
@@ -30,19 +42,56 @@ async function exists(p) {
   }
 }
 
+async function sha256(file) {
+  return createHash('sha256').update(await readFile(file)).digest('hex');
+}
+
+async function verify(file) {
+  const { size } = await stat(file);
+  if (size !== MODEL_BYTES) {
+    throw new Error(`model is ${size} bytes, expected ${MODEL_BYTES} — download incomplete`);
+  }
+  const digest = await sha256(file);
+  if (digest !== MODEL_SHA256) {
+    throw new Error(
+      `model sha256 ${digest} does not match the pin ${MODEL_SHA256}.\n` +
+        'If the upstream model was updated on purpose, verify the new file and update ' +
+        'MODEL_SHA256 / MODEL_BYTES in this script.',
+    );
+  }
+}
+
 async function fetchModel() {
   if (await exists(MODEL_DEST)) {
-    const { size } = await stat(MODEL_DEST);
-    console.log(`model already present (${(size / 1e6).toFixed(1)} MB) — skipping`);
-    return;
+    // A previous run may have been killed mid-stream. Never trust "the file is there".
+    try {
+      await verify(MODEL_DEST);
+      console.log(`model already present and verified (${(MODEL_BYTES / 1e6).toFixed(1)} MB)`);
+      return;
+    } catch (error) {
+      console.warn(`existing model rejected (${error.message}) — refetching`);
+      await rm(MODEL_DEST, { force: true });
+    }
   }
+
   await mkdir(path.dirname(MODEL_DEST), { recursive: true });
+  await rm(MODEL_TMP, { force: true });
   console.log(`downloading ${MODEL_URL}`);
+
   const res = await fetch(MODEL_URL);
   if (!res.ok || !res.body) throw new Error(`model download failed: ${res.status}`);
-  await pipeline(Readable.fromWeb(res.body), createWriteStream(MODEL_DEST));
-  const { size } = await stat(MODEL_DEST);
-  console.log(`model saved (${(size / 1e6).toFixed(1)} MB)`);
+
+  // Stream to a .part file and only publish it under the real name once verified, so
+  // an interrupted download can never masquerade as a good one on the next run.
+  await pipeline(Readable.fromWeb(res.body), createWriteStream(MODEL_TMP));
+  try {
+    await verify(MODEL_TMP);
+  } catch (error) {
+    await rm(MODEL_TMP, { force: true });
+    throw error;
+  }
+  await rename(MODEL_TMP, MODEL_DEST);
+  console.log(`model saved and verified (${(MODEL_BYTES / 1e6).toFixed(1)} MB)`);
 }
 
 /**

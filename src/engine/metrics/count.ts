@@ -9,29 +9,45 @@
  * Disabled entirely unless VITE_COUNT_ENDPOINT is set at build time. Off in dev.
  */
 
-const ENDPOINT = import.meta.env.VITE_COUNT_ENDPOINT as string | undefined;
 const STORAGE_KEY = 'tya.counted.v1';
 
 export type CountEvent = 'experience_started' | 'portrait_saved';
 
-function alreadyCounted(event: CountEvent): boolean {
+/** Read lazily so a build-time env change (and tests) are picked up honestly. */
+function endpoint(): string | undefined {
+  const value = import.meta.env.VITE_COUNT_ENDPOINT as string | undefined;
+  return value && value.length > 0 ? value : undefined;
+}
+
+function readSeen(): string[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    const seen = raw ? (JSON.parse(raw) as string[]) : [];
-    return seen.includes(event);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : [];
   } catch {
-    // Private mode / storage blocked. Better to skip the count than to over-count.
+    return [];
+  }
+}
+
+/**
+ * Storage being unavailable (private mode, blocked cookies) means we cannot dedupe,
+ * so we do not count at all. Better a missing number than an inflated one.
+ */
+function storageAvailable(): boolean {
+  try {
+    localStorage.setItem(STORAGE_KEY, localStorage.getItem(STORAGE_KEY) ?? '[]');
     return true;
+  } catch {
+    return false;
   }
 }
 
 function markCounted(event: CountEvent): void {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    const seen = raw ? (JSON.parse(raw) as string[]) : [];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([...new Set([...seen, event])]));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([...new Set([...readSeen(), event])]));
   } catch {
-    /* storage blocked — nothing to do */
+    /* storage blocked — we already refuse to count in that case */
   }
 }
 
@@ -40,19 +56,33 @@ function optedOut(): boolean {
   return new URLSearchParams(location.search).has('nocount');
 }
 
+/** Guards against a double dispatch inside a single page load. */
+const inFlight = new Set<CountEvent>();
+
 export function count(event: CountEvent): void {
-  if (!ENDPOINT || optedOut() || alreadyCounted(event)) return;
-  markCounted(event);
+  const url = endpoint();
+  if (!url || optedOut() || inFlight.has(event)) return;
+  if (!storageAvailable() || readSeen().includes(event)) return;
 
+  inFlight.add(event);
   const body = JSON.stringify({ event });
-  // Beacon so it cannot delay or block the experience, and survives a tab close.
-  const sent =
-    typeof navigator.sendBeacon === 'function' &&
-    navigator.sendBeacon(ENDPOINT, new Blob([body], { type: 'application/json' }));
 
-  if (!sent) {
-    void fetch(ENDPOINT, { method: 'POST', body, keepalive: true, mode: 'no-cors' }).catch(
-      () => undefined,
-    );
+  // Beacon first: it cannot delay the experience and survives the tab closing.
+  if (typeof navigator.sendBeacon === 'function') {
+    if (navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }))) {
+      markCounted(event);
+      return;
+    }
   }
+
+  /**
+   * Only mark once something actually left the machine. Marking up front (the
+   * obvious way to write this) permanently burns the one chance this browser has:
+   * a beacon that fails offline would flag the visitor as counted forever, and the
+   * count would quietly miss exactly the flaky-mobile visitors it exists to find.
+   */
+  void fetch(url, { method: 'POST', body, keepalive: true, mode: 'no-cors' })
+    .then(() => markCounted(event))
+    .catch(() => undefined)
+    .finally(() => inFlight.delete(event));
 }

@@ -74,6 +74,21 @@ button {
   transform: none;
 }
 
+/* Shown instead of the app when the page is embedded in someone else's frame. */
+.frame-refusal {
+  min-height: 100dvh;
+  display: grid;
+  place-content: center;
+  gap: var(--space-4);
+  text-align: center;
+  padding: var(--space-8);
+  color: var(--text-muted);
+}
+
+.frame-refusal a {
+  color: var(--electric-400);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
