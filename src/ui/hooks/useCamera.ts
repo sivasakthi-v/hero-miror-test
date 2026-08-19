@@ -3,6 +3,7 @@ import { createCameraManager } from '@/engine/camera/camera-manager';
 import { CameraError, type CameraManager } from '@/engine/camera/camera-types';
 import { checkSupport } from '@/engine/camera/support';
 import { INITIAL_CONTEXT, reduce, type HeroContext } from '@/engine/state/machine';
+import type { ArtModeId } from '@/content/art-modes';
 import { useFaceTracking } from './useFaceTracking';
 
 /**
@@ -15,6 +16,8 @@ export interface UseCamera {
   videoRef: React.RefObject<HTMLVideoElement | null>;
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   delegate: 'GPU' | 'CPU' | null;
+  artMode: ArtModeId;
+  setArtMode: (mode: ArtModeId) => void;
   begin: () => void;
   retry: () => void;
 }
@@ -25,10 +28,26 @@ export function useCamera(debug: boolean): UseCamera {
   const managerRef = useRef<CameraManager | null>(null);
   const delegateRef = useRef<'GPU' | 'CPU' | null>(null);
 
-  const { canvasRef, start: startTracking, stop: stopTracking } = useFaceTracking({
+  /**
+   * The worker starts loading at mount, so on a warm cache the model is ready *before*
+   * the visitor clicks BEGIN. MODEL_READY then arrives while the machine is still idle,
+   * where it means nothing and is dropped — and the hero sits on "getting my pencils"
+   * forever with tracking visibly working behind it. Remembering readiness lets the
+   * grant re-raise it.
+   */
+  const modelReadyRef = useRef(false);
+
+  const {
+    canvasRef,
+    artMode,
+    setArtMode,
+    start: startTracking,
+    stop: stopTracking,
+  } = useFaceTracking({
     debug,
     onReady: (delegate) => {
       delegateRef.current = delegate;
+      modelReadyRef.current = true;
       dispatch({ type: 'MODEL_READY' });
     },
     // Vision failing is not fatal: the camera keeps running inside the frame, just
@@ -90,8 +109,10 @@ export function useCamera(debug: boolean): UseCamera {
       (stream) => {
         dispatch({ type: 'CAMERA_GRANTED' });
         attach(stream);
-        // MODEL_READY now arrives from the worker, not from here. The machine waits in
-        // loading_model until the vision runtime genuinely exists.
+        // If the worker finished while the visitor was still reading the intro, replay
+        // that fact now that the machine can act on it. Otherwise MODEL_READY arrives
+        // from the worker in its own time.
+        if (modelReadyRef.current) dispatch({ type: 'MODEL_READY' });
       },
       (error: unknown) => {
         dispatch({
@@ -107,5 +128,14 @@ export function useCamera(debug: boolean): UseCamera {
     begin();
   }, [begin]);
 
-  return { context, videoRef, canvasRef, delegate: delegateRef.current, begin, retry };
+  return {
+    context,
+    videoRef,
+    canvasRef,
+    delegate: delegateRef.current,
+    artMode,
+    setArtMode,
+    begin,
+    retry,
+  };
 }

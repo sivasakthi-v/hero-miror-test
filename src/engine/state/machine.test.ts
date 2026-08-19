@@ -184,6 +184,17 @@ describe('hero machine', () => {
     expect(ctx.failure).toBe('in_app_browser');
   });
 
+  // Regression: on a warm cache the model finishes loading before the visitor clicks
+  // BEGIN, so MODEL_READY lands in `idle` and is dropped. The hero then sat on
+  // "getting my pencils" forever with tracking plainly working behind it. The machine
+  // is right to ignore it here — the hook replays it on CAMERA_GRANTED.
+  it('ignores MODEL_READY that arrives before there is a camera', () => {
+    expect(transition('idle', { type: 'MODEL_READY' })).toBe('idle');
+    expect(transition('requesting', { type: 'MODEL_READY' })).toBe('requesting');
+    // ...and still accepts it once the camera exists.
+    expect(transition('loading_model', { type: 'MODEL_READY' })).toBe('no_face');
+  });
+
   // Regression: making CAMERA_FAILED state-guarded silently swallowed the reason that
   // the support check reported at boot, so "no camera on this device" and "you are
   // inside the Instagram browser" both rendered as "I cannot tell you why".

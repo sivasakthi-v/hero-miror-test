@@ -119,6 +119,56 @@ a.hero__action {
   pointer-events: none;
 }
 
+/* Four marks tucked inside the frame edge — present, not shouting. */
+.style-picker {
+  position: absolute;
+  bottom: var(--space-3);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink-900) 55%, transparent);
+  opacity: 0.45;
+  transition: opacity var(--dur-base) var(--ease-out);
+}
+
+.hero__aperture:hover .style-picker,
+.style-picker:focus-within {
+  opacity: 1;
+}
+
+.style-picker__dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--dot);
+  opacity: 0.55;
+  transform: scale(0.85);
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.style-picker__dot:hover,
+.style-picker__dot[data-active='true'] {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+/* Touch devices have no hover, so the picker must be visible without one. */
+@media (hover: none) {
+  .style-picker {
+    opacity: 0.85;
+  }
+
+  .style-picker__dot {
+    width: 16px;
+    height: 16px;
+  }
+}
+
 .hero__debug {
   position: fixed;
   bottom: var(--space-4);

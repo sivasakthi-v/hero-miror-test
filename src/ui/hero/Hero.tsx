@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react';
 import { fallbackFor, identity, intro, live, permission } from '@/content/copy';
 import { isCameraRunning, isFallback } from '@/engine/state/machine';
 import { useCamera } from '@/ui/hooks/useCamera';
+import { StylePicker } from './StylePicker';
 import './hero.css';
 
 const DEBUG = new URLSearchParams(window.location.search).has('debug');
 
 export function Hero() {
-  const { context, videoRef, canvasRef, delegate, begin, retry } = useCamera(DEBUG);
+  const { context, videoRef, canvasRef, delegate, artMode, setArtMode, begin, retry } =
+    useCamera(DEBUG);
   const { state } = context;
 
   const showIntro = state === 'boot' || state === 'idle' || state === 'requesting';
@@ -44,6 +46,7 @@ export function Hero() {
           {/* Face artwork lives here, above the video and inside the same aperture, so
               it inherits the identical crop. P2 draws the debug outline; P3 the art. */}
           <canvas ref={canvasRef} className="hero__canvas" aria-hidden="true" />
+          {cameraOn && !DEBUG && <StylePicker value={artMode} onChange={setArtMode} />}
           {!cameraOn && (
             <span className="hero__placeholder" aria-hidden="true">
               {state === 'requesting' ? permission.hint : ''}
