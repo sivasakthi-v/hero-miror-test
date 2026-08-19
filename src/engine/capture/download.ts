@@ -8,7 +8,7 @@ import { CAPTURE_FILENAME } from '@/content/copy';
  * rather than nearly true.
  */
 
-export function downloadBlob(blob: Blob, filename = CAPTURE_FILENAME): void {
+export function downloadBlob(blob: Blob, filename: string = CAPTURE_FILENAME): void {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
@@ -21,7 +21,7 @@ export function downloadBlob(blob: Blob, filename = CAPTURE_FILENAME): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export function canShareImage(blob: Blob, filename = CAPTURE_FILENAME): boolean {
+export function canShareImage(blob: Blob, filename: string = CAPTURE_FILENAME): boolean {
   if (typeof navigator.canShare !== 'function' || typeof navigator.share !== 'function') {
     return false;
   }
@@ -39,7 +39,7 @@ export function canShareImage(blob: Blob, filename = CAPTURE_FILENAME): boolean 
  * Returns false if the visitor dismissed the sheet, so the caller can leave the save
  * button in place rather than pretending something happened.
  */
-export async function shareImage(blob: Blob, filename = CAPTURE_FILENAME): Promise<boolean> {
+export async function shareImage(blob: Blob, filename: string = CAPTURE_FILENAME): Promise<boolean> {
   if (!canShareImage(blob, filename)) return false;
   try {
     await navigator.share({

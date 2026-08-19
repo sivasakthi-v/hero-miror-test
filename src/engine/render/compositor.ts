@@ -4,7 +4,6 @@ import type { FaceState } from '@/engine/vision/types';
 import { drawDebugFace } from './debug-overlay';
 import type { SceneAnalysis } from './exposure';
 import { drawDitherAscii } from './dither';
-import { drawGraffiti } from './graffiti';
 import { drawGrain } from './grain';
 import type { ParticleField } from './particles';
 import { drawPhoto } from './photo';
@@ -92,16 +91,7 @@ export function renderFrame(
     reducedMotion: options.reducedMotion,
   });
 
-  // Layer 06: graffiti. Inside the canvas on purpose — anything drawn in HTML around
-  // the frame would be missing from the portrait the visitor keeps.
-  drawGraffiti(ctx, viewport, options.mode, options.face, {
-    progress: options.progress,
-    time: options.time,
-    sessionSeed: options.sessionSeed,
-    reducedMotion: options.reducedMotion,
-  });
-
-  // Layer 07: reactions, above the photo but inside the frame.
+  // Layer 06: reactions, above the photo but inside the frame.
   ctx.save();
   ctx.globalAlpha = options.progress;
   options.particles.draw(ctx);

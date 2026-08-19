@@ -9,20 +9,12 @@
 export const SIGNATURE_LEAD = 'You' as const;
 export const SIGNATURE_REST = ' by Siva Serafino · 2026' as const;
 export const SIGNATURE = `${SIGNATURE_LEAD}${SIGNATURE_REST}` as const;
-export const CAPTURE_FILENAME = 'you-by-siva-serafino.jpg' as const;
+export const CAPTURE_FILENAME = 'you-by-siva-serafino.png' as const;
+export const SHARE_FILENAME = 'you-by-siva-serafino-share.jpg' as const;
 
 export const intro = {
   title: 'There you are.',
-  body: ['I made this portfolio', 'a little differently.', '', 'Turn on your camera', 'and look around.'],
-  action: "LET'S BEGIN",
-  /**
-   * Precise by construction (docs/PLAN.md R6). The model and WASM are self-hosted and
-   * there is no analytics script — but there IS an anonymous counter (DECISIONS.md D13),
-   * so the blanket "nothing is uploaded" would be a lie. Hence the second line.
-   * If the counter is ever removed, remove `privacyNote` with it.
-   */
-  privacy: 'Camera processing happens in your browser. Your camera feed is never uploaded.',
-  privacyNote: 'The only thing I collect is an anonymous count of how many people tried this.',
+  action: 'TRY CAM',
 } as const;
 
 export const permission = {

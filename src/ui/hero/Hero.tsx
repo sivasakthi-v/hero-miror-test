@@ -147,18 +147,10 @@ function IntroCopy({ state, onBegin }: { state: string; onBegin: () => void }) {
   return (
     <>
       <p className="hero__title">{asking ? permission.requesting : intro.title}</p>
-      {!asking && (
-        <div className="hero__body">
-          {intro.body.map((line, i) => (line === '' ? <br key={i} /> : <p key={i}>{line}</p>))}
-        </div>
-      )}
-
       <button className="hero__action" type="button" onClick={onBegin} disabled={asking}>
         {asking ? '…' : intro.action}
       </button>
 
-      <p className="hero__privacy">{intro.privacy}</p>
-      <p className="hero__privacy hero__privacy--note">{intro.privacyNote}</p>
     </>
   );
 }
