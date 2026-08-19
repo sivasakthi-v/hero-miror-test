@@ -21,13 +21,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # enablement: true turns Pages on for the repo using this run's own token, so a
-      # fresh clone of this project deploys without anyone visiting Settings first.
-      - id: pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
-
+      # NOTE: Pages must be switched on once by hand — Settings -> Pages -> Source ->
+      # GitHub Actions. actions/configure-pages@v5 with `enablement: true` looks like it
+      # automates this, but creating a Pages site needs admin rights that GITHUB_TOKEN
+      # does not carry, so it fails the build with a 403 before anything else runs.
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -52,10 +49,10 @@ jobs:
 
       - name: Build
         env:
-          # configure-pages reports the real base path: "/<repo>" for a project site and
-          # "" once a custom domain is attached, so this survives a rename or a domain
-          # without anyone editing the workflow. VITE_BASE_OVERRIDE stays as an escape hatch.
-          BASE_PATH: ${{ vars.VITE_BASE_OVERRIDE || format('{0}/', steps.pages.outputs.base_path) }}
+          # Project pages live at https://<user>.github.io/<repo>/. Derived from the repo
+          # name so a rename needs no edit here; set the VITE_BASE_OVERRIDE repo variable
+          # to "/" when a custom domain is attached.
+          BASE_PATH: ${{ vars.VITE_BASE_OVERRIDE || format('/{0}/', github.event.repository.name) }}
           VITE_COUNT_ENDPOINT: ${{ vars.VITE_COUNT_ENDPOINT }}
         run: npm run build
 
