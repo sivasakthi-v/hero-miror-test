@@ -4,6 +4,7 @@ import { CameraError, type CameraManager } from '@/engine/camera/camera-types';
 import { checkSupport } from '@/engine/camera/support';
 import { INITIAL_CONTEXT, reduce, type HeroContext } from '@/engine/state/machine';
 import type { ArtModeId } from '@/content/art-modes';
+import { useCapture, type UseCapture } from './useCapture';
 import { useFaceTracking, type Telemetry } from './useFaceTracking';
 
 /**
@@ -21,6 +22,7 @@ export interface UseCamera {
   ambientRef: React.RefObject<HTMLCanvasElement | null>;
   shineRef: React.RefObject<number>;
   telemetryRef: React.RefObject<Telemetry>;
+  capture: UseCapture;
   begin: () => void;
   retry: () => void;
 }
@@ -45,6 +47,7 @@ export function useCamera(debug: boolean): UseCamera {
     ambientRef,
     shineRef,
     telemetryRef,
+    sourceRef,
     artMode,
     setArtMode,
     start: startTracking,
@@ -129,6 +132,21 @@ export function useCamera(debug: boolean): UseCamera {
     );
   }, [attach]);
 
+  /**
+   * Capture events drive the machine rather than a separate boolean: CAPTURING blocks a
+   * second shutter, and CAPTURED is what puts the print on screen. The camera keeps
+   * running throughout (blueprint §23).
+   */
+  const capture = useCapture(
+    () => sourceRef.current,
+    useCallback((event: 'start' | 'done' | 'failed' | 'dismiss') => {
+      if (event === 'start') dispatch({ type: 'CAPTURE' });
+      else if (event === 'done') dispatch({ type: 'CAPTURE_DONE' });
+      else if (event === 'failed') dispatch({ type: 'CAPTURE_FAILED' });
+      else dispatch({ type: 'DISMISS_CAPTURE' });
+    }, []),
+  );
+
   const retry = useCallback(() => {
     dispatch({ type: 'RETRY' });
     begin();
@@ -141,6 +159,7 @@ export function useCamera(debug: boolean): UseCamera {
     ambientRef,
     shineRef,
     telemetryRef,
+    capture,
     delegate: delegateRef.current,
     artMode,
     setArtMode,

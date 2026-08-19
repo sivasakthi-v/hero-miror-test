@@ -224,3 +224,125 @@ a.hero__action {
 .hero__ambient[data-on='true'] {
   opacity: 0.75;
 }
+
+/* ---- shutter ---------------------------------------------------------------- */
+
+.capture {
+  margin-top: var(--space-6);
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+}
+
+.capture__prompt {
+  color: var(--text-muted);
+  font-size: var(--step--1);
+  letter-spacing: var(--tracking-wide);
+}
+
+.capture__shutter {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+}
+
+/* A real shutter ring: it tightens on hover and again on press, which is the whole
+   physical vocabulary of pressing a camera button. */
+.capture__ring {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 2px solid var(--paper-100);
+  box-shadow: inset 0 0 0 3px var(--ink-900), 0 0 0 0 rgba(244, 240, 232, 0.25);
+  transition:
+    box-shadow var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.capture__shutter:hover .capture__ring {
+  box-shadow: inset 0 0 0 5px var(--ink-900), 0 0 0 6px rgba(244, 240, 232, 0.12);
+}
+
+.capture__shutter:active .capture__ring {
+  transform: scale(0.9);
+  box-shadow: inset 0 0 0 8px var(--ink-900), 0 0 0 2px rgba(244, 240, 232, 0.3);
+}
+
+.capture__shutter:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.capture__label {
+  font-size: var(--step--1);
+  letter-spacing: var(--tracking-wider);
+  color: var(--text-muted);
+}
+
+/* The exposure flash. Driven by --flash, written per frame by the render tick. */
+.hero__flash {
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 5;
+  background: #fff;
+  opacity: calc(var(--flash, 0) * 0.85);
+}
+
+/* ---- the developed print ------------------------------------------------------ */
+
+.develop {
+  margin-top: var(--space-6);
+  display: grid;
+  justify-items: center;
+  gap: var(--space-4);
+}
+
+.develop__sheet {
+  max-width: min(70vw, 22rem);
+}
+
+/* Polaroids develop. Fading the print up over a couple of seconds is most of why
+   keeping one feels like keeping something. */
+.develop__print {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 3px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55), 0 3px 8px rgba(0, 0, 0, 0.5);
+  animation: develop 2.2s var(--ease-out) both;
+}
+
+@keyframes develop {
+  from {
+    opacity: 0;
+    filter: contrast(0.4) brightness(1.5) saturate(0.3);
+  }
+  to {
+    opacity: 1;
+    filter: none;
+  }
+}
+
+.develop__caption {
+  color: var(--text-muted);
+  font-size: var(--step--1);
+}
+
+.develop__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: center;
+}
+
+.develop__actions .hero__action {
+  margin-top: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .develop__print {
+    animation: none;
+  }
+}

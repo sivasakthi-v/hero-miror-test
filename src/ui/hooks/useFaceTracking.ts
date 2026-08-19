@@ -8,6 +8,7 @@ import { createReactionState, updateReactions } from '@/engine/render/reactions'
 import { createViewport } from '@/engine/transform/viewport';
 import { nextExpressionState, type ExpressionState } from '@/engine/vision/expression';
 import { createFaceTracker, type FaceTracker } from '@/engine/vision/landmarker-client';
+import type { CaptureSource } from './useCapture';
 
 /**
  * Owns the render loop. Runs at display refresh and always draws the newest face state
@@ -24,6 +25,8 @@ export interface UseFaceTracking {
   shineRef: React.RefObject<number>;
   /** Live signals for the debug HUD — tuning thresholds needs real numbers, not guesses. */
   telemetryRef: React.RefObject<Telemetry>;
+  /** Everything the capture renderer needs, kept current by the render loop. */
+  sourceRef: React.RefObject<CaptureSource>;
   start: (video: HTMLVideoElement) => void;
   stop: () => void;
 }
@@ -82,6 +85,13 @@ export function useFaceTracking(callbacks: FaceTrackingCallbacks): UseFaceTracki
   const telemetryRef = useRef<Telemetry>({
     expression: 'neutral', smile: 0, sadness: 0, surprise: 0,
     particles: 0, gain: 1, luma: 0.5, tier: 'high',
+  });
+  const sourceRef = useRef<CaptureSource>({
+    video: null,
+    face: { present: false, landmarks: [], anchors: null, expression: { smile: 0, mouthOpen: 0, browLift: 0, eyeOpen: 1, sadness: 0, surprise: 0 }, timestamp: 0 },
+    mode: ART_MODES.lens,
+    scene: { gain: 1, luma: 0.5, clipped: 0, quadrants: [] },
+    aspect: 1.5,
   });
   const reactionRef = useRef(createReactionState(0));
   const expressionRef = useRef<ExpressionState>('neutral');
@@ -195,6 +205,16 @@ export function useFaceTracking(callbacks: FaceTrackingCallbacks): UseFaceTracki
       }
     }
 
+    // The capture renderer reads this instead of reaching into the loop's internals, so
+    // a print is always made from exactly what is on screen right now.
+    sourceRef.current = {
+      video,
+      face,
+      mode,
+      scene,
+      aspect: rect.width / rect.height,
+    };
+
     telemetryRef.current = {
       expression: expressionRef.current,
       smile: face.expression.smile,
@@ -233,5 +253,5 @@ export function useFaceTracking(callbacks: FaceTrackingCallbacks): UseFaceTracki
     trackerRef.current?.stop();
   }, []);
 
-  return { canvasRef, ambientRef, artMode, setArtMode, shineRef, telemetryRef, start, stop };
+  return { canvasRef, ambientRef, artMode, setArtMode, shineRef, telemetryRef, sourceRef, start, stop };
 }

@@ -3,6 +3,7 @@ import { fallbackFor, identity, intro, live, permission } from '@/content/copy';
 import { isCameraRunning, isFallback } from '@/engine/state/machine';
 import { useCamera } from '@/ui/hooks/useCamera';
 import type { Telemetry } from '@/ui/hooks/useFaceTracking';
+import { CaptureButton, CapturePreview } from './Capture';
 import { StylePicker } from './StylePicker';
 import './hero.css';
 import './frame.css';
@@ -17,6 +18,7 @@ export function Hero() {
     ambientRef,
     shineRef,
     telemetryRef,
+    capture,
     delegate,
     artMode,
     setArtMode,
@@ -25,6 +27,7 @@ export function Hero() {
   } = useCamera(DEBUG);
   const { state } = context;
   const frameRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
 
   const showIntro = state === 'boot' || state === 'idle' || state === 'requesting';
   const showFallback = isFallback(state);
@@ -41,10 +44,16 @@ export function Hero() {
     const tick = () => {
       id = requestAnimationFrame(tick);
       frameRef.current?.style.setProperty('--shine', shineRef.current.toFixed(3));
+      // The shutter flash decays here rather than in the capture hook, because it is
+      // purely visual and must not cost a React render per frame.
+      if (capture.flashRef.current > 0) {
+        capture.flashRef.current = Math.max(0, capture.flashRef.current - 1 / 22);
+        stageRef.current?.style.setProperty('--flash', capture.flashRef.current.toFixed(3));
+      }
     };
     id = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(id);
-  }, [cameraOn, shineRef]);
+  }, [cameraOn, shineRef, capture.flashRef]);
 
   return (
     <section className="hero" data-state={state}>
@@ -64,7 +73,7 @@ export function Hero() {
           {cameraOn && <p className="hero__title">{liveCopyFor(state)}</p>}
         </div>
 
-        <div className="hero__frame-wrap">
+        <div className="hero__frame-wrap" ref={stageRef}>
           <div className="frame" ref={frameRef} data-on={cameraOn}>
             <div className="hero__aperture">
               {/*
@@ -94,7 +103,21 @@ export function Hero() {
                 </span>
               )}
             </div>
+            <span className="hero__flash" aria-hidden="true" />
           </div>
+
+          {cameraOn && !capture.preview && (
+            <CaptureButton onClick={capture.capture} busy={capture.busy} />
+          )}
+          {capture.preview && (
+            <CapturePreview
+              src={capture.preview}
+              shareable={capture.shareable}
+              onSave={capture.save}
+              onShare={capture.share}
+              onDismiss={capture.dismiss}
+            />
+          )}
         </div>
       </div>
 

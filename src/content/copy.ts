@@ -7,7 +7,7 @@
  */
 
 export const SIGNATURE = 'You by Siva Serafino · 2026' as const;
-export const CAPTURE_FILENAME = 'you-by-siva-serafino.png' as const;
+export const CAPTURE_FILENAME = 'you-by-siva-serafino.jpg' as const;
 
 export const intro = {
   title: 'There you are.',
