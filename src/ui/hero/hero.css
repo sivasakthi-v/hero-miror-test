@@ -486,3 +486,137 @@ a.hero__action {
   opacity: 0.6;
   cursor: default;
 }
+
+/* ---- empty state ---------------------------------------------------------------- */
+
+/*
+ * The default loop. `cover` is what makes one 16:9 file work in both apertures: it
+ * scales until the shorter side fills and lets the longer one crop, so a 3:2 frame takes
+ * it full-width and a 4:5 frame takes it full-height. `contain` would letterbox and
+ * `fill` would stretch faces — neither is acceptable for the first thing anyone sees.
+ */
+.hero__default {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  /* Sat back slightly so the call to action over it stays the brightest thing. */
+  filter: saturate(0.9) brightness(0.75);
+}
+
+/* A vignette under the CTA, so the button never has to fight a bright frame of the loop. */
+.hero__begin::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    58% 58% at 50% 50%,
+    rgba(4, 5, 8, 0.72) 0%,
+    rgba(4, 5, 8, 0.45) 45%,
+    rgba(4, 5, 8, 0) 100%
+  );
+  pointer-events: none;
+}
+
+/* ---- the call to action ---------------------------------------------------------- */
+
+.hero__begin .hero__action {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  margin-top: 0;
+  pointer-events: auto;
+  padding: var(--space-4) var(--space-8);
+  font-weight: 600;
+  font-size: var(--step-0);
+  letter-spacing: var(--tracking-wider);
+  color: var(--ink-900);
+  background: var(--paper-100);
+  border-color: transparent;
+  border-radius: 999px;
+  /* The energy field: a wide, soft halo that breathes. Colour comes from the token so it
+     stays part of the palette rather than becoming a stray neon. */
+  box-shadow:
+    0 0 0 0 rgba(95, 141, 255, 0.55),
+    0 6px 24px rgba(0, 0, 0, 0.5);
+  animation: cta-surge 2.6s var(--ease-inout) infinite;
+}
+
+/* The surge itself: light travelling across the face of the button, on its own slower
+   clock than the halo so the two never sync into a single throb. */
+.hero__begin .hero__action::after {
+  content: '';
+  position: absolute;
+  inset: -40%;
+  z-index: -1;
+  background: linear-gradient(
+    100deg,
+    transparent 38%,
+    rgba(255, 255, 255, 0.85) 48%,
+    rgba(180, 205, 255, 0.6) 54%,
+    transparent 64%
+  );
+  transform: translateX(-60%);
+  animation: cta-sweep 3.4s var(--ease-inout) infinite;
+}
+
+.hero__begin .hero__action:hover:not(:disabled) {
+  background: #fff;
+  transform: scale(1.03);
+}
+
+.hero__begin .hero__action:disabled {
+  animation: none;
+  background: rgba(8, 9, 10, 0.6);
+  color: var(--text);
+  border-color: rgba(244, 240, 232, 0.35);
+  font-weight: 400;
+  letter-spacing: var(--tracking-wide);
+  opacity: 0.85;
+  cursor: default;
+}
+
+.hero__begin .hero__action:disabled::after {
+  display: none;
+}
+
+@keyframes cta-surge {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(95, 141, 255, 0.5),
+      0 6px 24px rgba(0, 0, 0, 0.5);
+  }
+  50% {
+    box-shadow:
+      0 0 34px 10px rgba(95, 141, 255, 0.35),
+      0 6px 28px rgba(0, 0, 0, 0.55);
+  }
+}
+
+@keyframes cta-sweep {
+  0% {
+    transform: translateX(-60%);
+  }
+  55%,
+  100% {
+    transform: translateX(60%);
+  }
+}
+
+/* Reduced motion keeps the button prominent and stops it moving: the halo holds at its
+   mid point and the sweep is removed rather than paused mid-travel. */
+@media (prefers-reduced-motion: reduce) {
+  .hero__begin .hero__action {
+    animation: none;
+    box-shadow:
+      0 0 24px 6px rgba(95, 141, 255, 0.28),
+      0 6px 24px rgba(0, 0, 0, 0.5);
+  }
+
+  .hero__begin .hero__action::after {
+    display: none;
+  }
+}

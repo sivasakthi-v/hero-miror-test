@@ -9,6 +9,7 @@ import './hero.css';
 import './frame.css';
 
 const DEBUG = new URLSearchParams(window.location.search).has('debug');
+const DEFAULT_LOOP = `${import.meta.env.BASE_URL}default.gif`;
 
 export function Hero() {
   const {
@@ -97,6 +98,11 @@ export function Hero() {
                 aria-label="Live camera portrait"
               />
               {cameraOn && !DEBUG && <StylePicker value={artMode} onChange={setArtMode} />}
+              {/* The empty state: a loop of what the frame is for. Cover-fitted, so it
+                  fills the aperture at both 3:2 and 4:5 without distorting. */}
+              {!cameraOn && !showFallback && (
+                <img className="hero__default" src={DEFAULT_LOOP} alt="" aria-hidden="true" />
+              )}
               {!cameraOn && !showFallback && (
                 <div className="hero__begin">
                   <button
