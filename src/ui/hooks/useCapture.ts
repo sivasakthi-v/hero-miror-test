@@ -33,7 +33,8 @@ export interface UseCapture {
   shareable: boolean;
   /** 0..1 exposure flash, driven by the shutter. */
   flashRef: React.RefObject<number>;
-  capture: () => void;
+  /** Returns false when there was nothing to capture, so the UI can skip its feedback. */
+  capture: () => boolean;
   save: () => void;
   share: () => void;
   dismiss: () => void;
@@ -61,9 +62,11 @@ export function useCapture(
     };
   }, [preview]);
 
-  const capture = useCallback(() => {
+  const capture = useCallback((): boolean => {
     const source = getSource();
-    if (!source.video || busy) return;
+    // The stream can vanish between the last rendered frame and the press — unplugged,
+    // taken by another app, or released by the hidden-tab suspend.
+    if (!source.video || busy) return false;
 
     setBusy(true);
     onStateChange('start');
@@ -110,6 +113,8 @@ export function useCapture(
         }
       })();
     });
+
+    return true;
   }, [busy, getSource, onStateChange]);
 
   const save = useCallback(() => {

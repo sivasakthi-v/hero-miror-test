@@ -2,6 +2,7 @@ import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { createCameraManager } from '@/engine/camera/camera-manager';
 import { CameraError, type CameraManager } from '@/engine/camera/camera-types';
 import { checkSupport } from '@/engine/camera/support';
+import { disposeShutter } from '@/engine/audio/shutter';
 import { INITIAL_CONTEXT, reduce, type HeroContext } from '@/engine/state/machine';
 import type { ArtModeId } from '@/content/art-modes';
 import { useCapture, type UseCapture } from './useCapture';
@@ -106,6 +107,8 @@ export function useCamera(debug: boolean): UseCamera {
     return () => {
       manager.dispose();
       managerRef.current = null;
+      // An open AudioContext keeps the audio path alive for the life of the page.
+      disposeShutter();
     };
   }, [attach, stopTracking]);
 

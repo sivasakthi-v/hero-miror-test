@@ -92,7 +92,7 @@ export const capture = {
   // Short on purpose. The picture is the message; anything longer competes with it.
   done: 'Happy you stopped by',
   thanks:
-    'Here’s a tiny piece of me, just for you. A souvenir for wanting to know the person behind the screen. Take it with you and don’t forget me along the way.',
+    'Here’s a tiny piece of me, just for you. A souvenir for wanting to know me. Take it with you, and don’t forget me along the way.',
   save: 'DOWNLOAD',
   share: 'SHARE',
   again: 'TAKE ANOTHER',
