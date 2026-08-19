@@ -270,6 +270,8 @@ capture → poster → PNG.
 
 **P5 — Perf + matrix** (1–2d). Quality tiers; device testing across Mac, Windows laptop, iPhone,
 Android, iPad; Chrome / Safari / Firefox / Edge; plus LinkedIn and Instagram in-app browsers.
+Also: service worker caching the model + wasm — GitHub Pages caps them at `max-age=600`, so
+without it every returning visitor re-downloads ~6.8MB (DECISIONS.md D12).
 
 **P6 — Shell** (later). Work / About / Experiments / Contact, SEO, optional Next.js migration.
 
