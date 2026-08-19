@@ -235,38 +235,17 @@ a.hero__action {
 
 /* ---- shutter ---------------------------------------------------------------- */
 
-/* Inside the frame, dead centre. The shutter belongs to the picture, not to the page —
-   and it is the only control most visitors will ever look for. */
 .capture {
-  position: absolute;
-  inset: 0;
-  z-index: 4;
+  margin-top: var(--space-6);
   display: grid;
-  place-items: center;
+  justify-items: center;
   gap: var(--space-2);
-  pointer-events: none;
 }
 
-.capture > * {
-  pointer-events: auto;
-}
-
-/* Sits under the ring, and only shows on hover — a permanent label over the picture is
-   one thing too many in a frame the visitor is meant to look at themselves in. */
 .capture__prompt {
-  position: absolute;
-  bottom: 18%;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-muted);
   font-size: var(--step--1);
   letter-spacing: var(--tracking-wide);
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
-  opacity: 0;
-  transition: opacity var(--dur-base) var(--ease-out);
-}
-
-.hero__aperture:hover .capture__prompt,
-.capture__shutter:focus-visible ~ .capture__prompt {
-  opacity: 1;
 }
 
 .capture__shutter {
@@ -278,28 +257,23 @@ a.hero__action {
 /* A real shutter ring: it tightens on hover and again on press, which is the whole
    physical vocabulary of pressing a camera button. */
 .capture__ring {
-  width: 58px;
-  height: 58px;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
-  border: 2.5px solid rgba(255, 255, 255, 0.92);
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(2px);
-  box-shadow:
-    inset 0 0 0 3px rgba(0, 0, 0, 0.35),
-    0 2px 12px rgba(0, 0, 0, 0.45);
+  border: 2px solid var(--paper-100);
+  box-shadow: inset 0 0 0 3px var(--ink-900), 0 0 0 0 rgba(244, 240, 232, 0.25);
   transition:
     box-shadow var(--dur-fast) var(--ease-out),
     transform var(--dur-fast) var(--ease-out);
 }
 
 .capture__shutter:hover .capture__ring {
-  background: rgba(255, 255, 255, 0.2);
-  box-shadow: inset 0 0 0 5px rgba(0, 0, 0, 0.3), 0 0 0 8px rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 0 0 5px var(--ink-900), 0 0 0 6px rgba(244, 240, 232, 0.12);
 }
 
 .capture__shutter:active .capture__ring {
-  transform: scale(0.88);
-  box-shadow: inset 0 0 0 9px rgba(0, 0, 0, 0.35), 0 0 0 3px rgba(255, 255, 255, 0.35);
+  transform: scale(0.9);
+  box-shadow: inset 0 0 0 8px var(--ink-900), 0 0 0 2px rgba(244, 240, 232, 0.3);
 }
 
 .capture__shutter:disabled {
@@ -480,4 +454,35 @@ a.hero__action {
   .keepsake__scrim {
     animation: none;
   }
+}
+
+
+/* The one thing to press before anything has started, in the middle of the empty
+   frame. Putting it there rather than under the copy makes the frame itself the
+   invitation instead of a grey box waiting for a button elsewhere. */
+.hero__begin {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.hero__begin .hero__action {
+  margin-top: 0;
+  pointer-events: auto;
+  background: rgba(8, 9, 10, 0.55);
+  backdrop-filter: blur(4px);
+  border-color: rgba(244, 240, 232, 0.5);
+}
+
+.hero__begin .hero__action:hover:not(:disabled) {
+  background: rgba(8, 9, 10, 0.75);
+  border-color: var(--paper-100);
+}
+
+.hero__begin .hero__action:disabled {
+  opacity: 0.6;
+  cursor: default;
 }

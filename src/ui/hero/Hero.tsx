@@ -68,7 +68,7 @@ export function Hero() {
 
       <div className="hero__stage">
         <div className="hero__copy">
-          {showIntro && <IntroCopy state={state} onBegin={begin} />}
+          {showIntro && <IntroCopy state={state} />}
           {showFallback && <FallbackCopy reason={context.failure} onRetry={retry} />}
           {cameraOn && <p className="hero__title">{liveCopyFor(state)}</p>}
         </div>
@@ -96,18 +96,26 @@ export function Hero() {
                 role="img"
                 aria-label="Live camera portrait"
               />
-              {cameraOn && !capture.preview && (
-                <CaptureButton onClick={capture.capture} busy={capture.busy} />
-              )}
               {cameraOn && !DEBUG && <StylePicker value={artMode} onChange={setArtMode} />}
-              {!cameraOn && (
-                <span className="hero__placeholder" aria-hidden="true">
-                  {state === 'requesting' ? permission.hint : ''}
-                </span>
+              {!cameraOn && !showFallback && (
+                <div className="hero__begin">
+                  <button
+                    className="hero__action"
+                    type="button"
+                    onClick={begin}
+                    disabled={state === 'requesting'}
+                  >
+                    {state === 'requesting' ? permission.hint : intro.action}
+                  </button>
+                </div>
               )}
             </div>
             <span className="hero__flash" aria-hidden="true" />
           </div>
+
+          {cameraOn && !capture.preview && (
+            <CaptureButton onClick={capture.capture} busy={capture.busy} />
+          )}
 
           {capture.preview && (
             <CapturePreview
@@ -142,17 +150,9 @@ function liveCopyFor(state: string): string {
   return live.stabilised;
 }
 
-function IntroCopy({ state, onBegin }: { state: string; onBegin: () => void }) {
+function IntroCopy({ state }: { state: string }) {
   const asking = state === 'requesting';
-  return (
-    <>
-      <p className="hero__title">{asking ? permission.requesting : intro.title}</p>
-      <button className="hero__action" type="button" onClick={onBegin} disabled={asking}>
-        {asking ? '…' : intro.action}
-      </button>
-
-    </>
-  );
+  return <p className="hero__title">{asking ? permission.requesting : intro.title}</p>;
 }
 
 function FallbackCopy({ reason, onRetry }: { reason: string | null; onRetry: () => void }) {
