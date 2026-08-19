@@ -1,0 +1,16 @@
+node_modules
+dist
+coverage
+*.local
+.DS_Store
+.vite
+.env
+.env.*
+!.env.example
+
+# Large self-hosted vision assets are fetched by scripts/fetch-vision-assets, not committed.
+public/models/*.task
+public/wasm/
+
+# Recorded fallback loop is produced by ?record=1 and added deliberately.
+*.webm.tmp

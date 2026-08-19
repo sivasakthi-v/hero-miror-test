@@ -1,0 +1,80 @@
+.hero {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: var(--space-8) var(--space-4);
+}
+
+.hero__stage {
+  display: grid;
+  gap: var(--space-12);
+  justify-items: center;
+  width: 100%;
+  max-width: 78rem;
+}
+
+@media (min-width: 1024px) {
+  .hero__stage {
+    grid-template-columns: minmax(16rem, 22rem) auto;
+    align-items: center;
+    justify-items: start;
+    gap: var(--space-16);
+  }
+}
+
+.hero__title {
+  font-family: var(--font-display);
+  font-size: var(--step-3);
+  line-height: var(--leading-tight);
+  letter-spacing: -0.02em;
+}
+
+.hero__body {
+  margin-top: var(--space-6);
+  color: var(--text-muted);
+}
+
+.hero__action {
+  margin-top: var(--space-8);
+  padding: var(--space-3) var(--space-6);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-size: var(--step--1);
+  letter-spacing: var(--tracking-wider);
+  transition: border-color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+
+.hero__action:hover {
+  border-color: var(--electric-400);
+  background-color: var(--ink-700);
+}
+
+.hero__privacy {
+  margin-top: var(--space-4);
+  max-width: 34ch;
+  color: var(--text-faint);
+  font-size: var(--step--1);
+}
+
+.hero__privacy--note {
+  margin-top: var(--space-2);
+  opacity: 0.72;
+}
+
+/* The inner aperture is strict; the outer artwork (P3) is the imperfect part. */
+.hero__aperture {
+  width: var(--aperture-width);
+  aspect-ratio: var(--aperture-ratio);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-aperture);
+  display: grid;
+  place-items: center;
+}
+
+.hero__placeholder {
+  color: var(--text-faint);
+  font-size: var(--step--1);
+  letter-spacing: var(--tracking-wide);
+}

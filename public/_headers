@@ -1,0 +1,17 @@
+# Cloudflare Pages / Netlify header rules (DECISIONS.md D12).
+
+/*
+  Permissions-Policy: camera=(self), microphone=(), geolocation=()
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Content-Type-Options: nosniff
+  # The hero must never run inside someone else's iframe (docs/PLAN.md §9).
+  X-Frame-Options: SAMEORIGIN
+
+# ~7MB of vision assets, content-addressed by their own filenames and never edited in place.
+/models/*
+  Cache-Control: public, max-age=31536000, immutable
+/wasm/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

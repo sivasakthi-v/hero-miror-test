@@ -1,0 +1,70 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; never cancel one mid-flight.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # The model + wasm are ~27MB and deliberately not committed. Cached so the
+      # 3.8MB model is not re-downloaded from Google on every push.
+      - name: Cache vision assets
+        uses: actions/cache@v4
+        with:
+          path: |
+            public/models
+            public/wasm
+          key: vision-assets-${{ hashFiles('package-lock.json', 'scripts/fetch-vision-assets.mjs') }}
+
+      - run: node scripts/fetch-vision-assets.mjs
+
+      - name: Gate — types, lint, tests
+        run: npm run check
+
+      - name: Build
+        env:
+          # Project pages live at https://<user>.github.io/<repo>/.
+          # Set VITE_BASE_OVERRIDE to "/" in repo variables when a custom domain is added.
+          BASE_PATH: ${{ vars.VITE_BASE_OVERRIDE || format('/{0}/', github.event.repository.name) }}
+          VITE_COUNT_ENDPOINT: ${{ vars.VITE_COUNT_ENDPOINT }}
+        run: npm run build
+
+      # Pages has no SPA fallback; a copy of index.html answers unknown paths.
+      - name: Add 404 fallback
+        run: cp dist/index.html dist/404.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
