@@ -7,7 +7,7 @@ import './hero.css';
 const DEBUG = new URLSearchParams(window.location.search).has('debug');
 
 export function Hero() {
-  const { context, videoRef, begin, retry } = useCamera();
+  const { context, videoRef, canvasRef, delegate, begin, retry } = useCamera(DEBUG);
   const { state } = context;
 
   const showIntro = state === 'boot' || state === 'idle' || state === 'requesting';
@@ -26,10 +26,7 @@ export function Hero() {
         <div className="hero__copy">
           {showIntro && <IntroCopy state={state} onBegin={begin} />}
           {showFallback && <FallbackCopy reason={context.failure} onRetry={retry} />}
-          {/* P1 has no face detection, so the machine sits in `no_face` — showing the
-              "come back" line to someone plainly sitting in frame reads as broken.
-              Until P2 wires MediaPipe, the camera-on state just greets them. */}
-          {cameraOn && <p className="hero__title">{live.firstDetection}</p>}
+          {cameraOn && <p className="hero__title">{liveCopyFor(state)}</p>}
         </div>
 
         <div className="hero__aperture">
@@ -44,6 +41,9 @@ export function Hero() {
             aria-label="Live camera preview"
             data-visible={cameraOn}
           />
+          {/* Face artwork lives here, above the video and inside the same aperture, so
+              it inherits the identical crop. P2 draws the debug outline; P3 the art. */}
+          <canvas ref={canvasRef} className="hero__canvas" aria-hidden="true" />
           {!cameraOn && (
             <span className="hero__placeholder" aria-hidden="true">
               {state === 'requesting' ? permission.hint : ''}
@@ -52,9 +52,24 @@ export function Hero() {
         </div>
       </div>
 
-      {DEBUG && <DebugPanel state={state} failure={context.failure} videoRef={videoRef} />}
+      {DEBUG && (
+        <DebugPanel
+          state={state}
+          failure={context.failure}
+          delegate={delegate}
+          videoRef={videoRef}
+        />
+      )}
     </section>
   );
+}
+
+/** The camera-on states each have their own line; `no_face` is the one that matters. */
+function liveCopyFor(state: string): string {
+  if (state === 'loading_model') return live.loading;
+  if (state === 'no_face') return live.noFace;
+  if (state === 'vision_failed') return live.firstDetection;
+  return live.stabilised;
 }
 
 function IntroCopy({ state, onBegin }: { state: string; onBegin: () => void }) {
@@ -105,10 +120,12 @@ function FallbackCopy({ reason, onRetry }: { reason: string | null; onRetry: () 
 function DebugPanel({
   state,
   failure,
+  delegate,
   videoRef,
 }: {
   state: string;
   failure: string | null;
+  delegate: 'GPU' | 'CPU' | null;
   videoRef: React.RefObject<HTMLVideoElement | null>;
 }) {
   // Sampled rather than read during render: a ref holds no render-triggering value, and
@@ -131,6 +148,8 @@ function DebugPanel({
       <dd>{failure ?? '—'}</dd>
       <dt>track</dt>
       <dd>{track}</dd>
+      <dt>delegate</dt>
+      <dd>{delegate ?? 'loading'}</dd>
       <dt>dpr</dt>
       <dd>{window.devicePixelRatio}</dd>
     </dl>

@@ -95,24 +95,25 @@ async function fetchModel() {
 }
 
 /**
- * tasks-vision ships three ~12MB variants. FilesetResolver.forVisionTasks only ever
- * loads the SIMD build, or the nosimd build on browsers without WASM SIMD. The
- * `module_internal` pair belongs to the graph API we do not use, so it is dropped —
- * 12MB less to push to the host on every deploy.
+ * Copy every variant. tasks-vision ships three ~12MB builds and picks one at runtime:
+ * `vision_wasm_internal` (classic, SIMD), `vision_wasm_nosimd_internal` (older CPUs)
+ * and `vision_wasm_module_internal` (ES module).
+ *
+ * Do not "optimise" this by dropping the module build. Our worker is `type: 'module'`,
+ * and importing the classic glue from an ES module leaves its factory module-scoped
+ * instead of global — MediaPipe then fails with "ModuleFactory not set", which reads
+ * like a corrupt download rather than a missing file. Each client downloads exactly one
+ * variant regardless; only the deploy artifact carries all three.
  */
-const WASM_KEEP = /^vision_wasm_(nosimd_)?internal\.(js|wasm)$/;
-
 async function copyWasm() {
   if (!(await exists(WASM_SRC))) {
     throw new Error('@mediapipe/tasks-vision is not installed — run npm install first');
   }
   await mkdir(WASM_DEST, { recursive: true });
-  const names = (await readdir(WASM_SRC)).filter((n) => WASM_KEEP.test(n));
-  if (names.length === 0) throw new Error('no wasm files matched — did tasks-vision change?');
-  for (const name of names) {
-    await cp(path.join(WASM_SRC, name), path.join(WASM_DEST, name));
-  }
-  console.log(`wasm copied (${names.join(', ')})`);
+  const names = await readdir(WASM_SRC);
+  if (names.length === 0) throw new Error('no wasm files found — did tasks-vision change?');
+  await cp(WASM_SRC, WASM_DEST, { recursive: true });
+  console.log(`wasm copied (${names.length} files)`);
 }
 
 await fetchModel();

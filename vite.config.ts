@@ -59,11 +59,37 @@ function securityHeaders(): Plugin {
   };
 }
 
+/**
+ * MediaPipe's FilesetResolver reaches the wasm glue with a dynamic import. In dev, Vite
+ * rewrites dynamic imports to `?import` and tries to resolve them through the module
+ * graph — but these files live in public/, which is served statically and is not in the
+ * graph, so the request 500s and the face model never loads. (Production is unaffected:
+ * the built site serves public/ as plain static files.)
+ *
+ * Stripping the query for /wasm/ hands back the untouched file, which is all MediaPipe
+ * wanted. Registered directly on the middleware stack so it runs before Vite's own
+ * transform middleware sees the request.
+ */
+function serveVisionWasm(): Plugin {
+  return {
+    name: 'serve-vision-wasm',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        if (req.url && /\/wasm\/[^?]+\?/.test(req.url)) {
+          req.url = req.url.split('?')[0];
+        }
+        next();
+      });
+    },
+  };
+}
+
 export default defineConfig({
   // GitHub Pages serves project sites from /<repo>/, so the deploy workflow sets
   // BASE_PATH. Local dev and custom domains stay at the root.
   base: process.env.BASE_PATH ?? '/',
-  plugins: [react(), securityHeaders()],
+  plugins: [react(), securityHeaders(), serveVisionWasm()],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

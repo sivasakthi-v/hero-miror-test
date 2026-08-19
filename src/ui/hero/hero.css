@@ -109,6 +109,16 @@ a.hero__action {
   opacity: 1;
 }
 
+/* The canvas is NOT mirrored in CSS. The mirror is applied once, mathematically, inside
+   transform/viewport — mirroring here as well would flip it back (docs/PLAN.md §26). */
+.hero__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
 .hero__debug {
   position: fixed;
   bottom: var(--space-4);
